@@ -357,13 +357,12 @@ def sanetize(dataset1, dataset2, labels1):
         seen.append(value)
     return np.delete(dataset1, overlap, 0), np.delete(labels1, overlap, None)
 
-
-print('Santize testing data ...')
-test_dataset, test_labels = sanetize(test_dataset, train_dataset, test_labels)
-test_dataset, test_labels = sanetize(test_dataset, valid_dataset, test_labels)
-
 pickle_file = 'notMNIST.pickle'
 
+if not os.path.exists(pickle_file):
+    print('Sanitize testing data ... may take a while.')
+    test_dataset, test_labels = sanetize(test_dataset, train_dataset, test_labels)
+    test_dataset, test_labels = sanetize(test_dataset, valid_dataset, test_labels)
 
 def maybe_final_pickle(all_dataset, force=False):
     if not force and os.path.exists(pickle_file):
