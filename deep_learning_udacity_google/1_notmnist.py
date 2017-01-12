@@ -4,6 +4,7 @@
 # pip3 install scipy
 # pip3 install sklearn
 # pip3 install Pillow
+# pip3 install jupyter
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,19 +12,29 @@ import os
 import sys
 import tarfile
 import pickle
+import string
+
 from IPython.display import display, Image
 from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
 from urllib.request import urlretrieve
 
-# Config the matplotlib backend as plotting inline in IPython
-#%matplotlib inline
+import random
+import collections
+from operator import itemgetter
+from hashlib import md5
 
+# Config the matplotlib backend as plotting inline in IPython
+# %matplotlib inline
+
+# Set working directory to tmp to story all data & pickle files
 tmp_dir = 'tmp'
 if not os.path.exists(tmp_dir):
     os.makedirs(tmp_dir)
 os.chdir(tmp_dir)
-print("Change working directory to" , os.getcwd())
+print("Change working directory to", os.getcwd())
+
+do_plotting = True
 
 url = 'http://commondatastorage.googleapis.com/books1000/'
 last_percent_reported = None
@@ -94,6 +105,25 @@ def maybe_extract(filename, force=False):
 test_folders = maybe_extract(test_filename)
 train_folders = maybe_extract(train_filename)
 
+
+def display_samples(folders):
+    """If run in ipython, display a sample image for each folder.
+    If it is not run in ipython, display a string only.
+    """
+    if not do_plotting:
+        return
+    for folder in folders:
+        print(folder)
+        image_files = os.listdir(folder)
+        image = random.choice(image_files)
+        image_file = os.path.join(folder, image)
+        i = Image(filename=image_file)
+        display(i)
+
+
+display_samples(test_folders)
+# display_samples(train_folders)
+
 image_size = 28  # Pixel width and height.
 pixel_depth = 255.0  # Number of levels per pixel.
 
@@ -153,3 +183,256 @@ train_datasets = maybe_pickle(train_folders, 45000)
 
 print('Testing datasets: ', test_datasets)
 print('Train datasets: ', train_datasets)
+
+
+def display_letters(letters, labels, figure_name):
+    if not do_plotting:
+        return
+    fig = plt.figure()
+    fig.suptitle(figure_name + ' (Close this window to continue)', fontsize=20)
+    total = len(letters)
+    for index, image in enumerate(letters):
+        a = fig.add_subplot(1, total, index + 1)
+        plt.imshow(image)
+        a.set_title(labels[index])
+        a.axis('off')
+    plt.show()
+
+
+def display_each_letter(datasets):
+    letters = []
+    labels = []
+    for index, pickle_name in enumerate(datasets):
+        print('Loading %s.' % pickle_name)
+        try:
+            with open(pickle_name, 'rb') as f:
+                images = pickle.load(f)
+                pos = random.randrange(0, len(images))
+                letters.append(images[pos])
+                label = pickle_name.split('/')[1][0]
+                labels.append(label)
+        except Exception as e:
+            print('Unable to load data from', pickle_name, ':', e)
+    figure_name = datasets[0].split('/')[0]
+    display_letters(letters, labels, figure_name)
+
+
+display_each_letter(test_datasets)
+display_each_letter(train_datasets)
+
+
+def verify_balance(datasets):
+    for index, pickle_name in enumerate(datasets):
+        try:
+            with open(pickle_name, 'rb') as f:
+                images = pickle.load(f)
+                print("Length %s = %s" % (pickle_name, len(images)))
+        except Exception as e:
+            print('Unable to load data from', pickle_name, ':', e)
+
+
+verify_balance(test_datasets)
+verify_balance(train_datasets)
+
+
+def make_arrays(nb_rows, img_size):
+    if nb_rows:
+        dataset = np.ndarray((nb_rows, img_size, img_size), dtype=np.float32)
+        labels = np.ndarray(nb_rows, dtype=np.int32)
+    else:
+        dataset, labels = None, None
+    return dataset, labels
+
+
+def merge_datasets(pickle_files, train_size, valid_size=0):
+    num_classes = len(pickle_files)
+    valid_dataset, valid_labels = make_arrays(valid_size, image_size)
+    train_dataset, train_labels = make_arrays(train_size, image_size)
+    vsize_per_class = valid_size // num_classes
+    tsize_per_class = train_size // num_classes
+
+    start_v, start_t = 0, 0
+    end_v, end_t = vsize_per_class, tsize_per_class
+    end_l = vsize_per_class + tsize_per_class
+    for label, pickle_file in enumerate(pickle_files):
+        try:
+            with open(pickle_file, 'rb') as f:
+                letter_set = pickle.load(f)
+                # let's shuffle the letters to have random validation and training set
+                np.random.shuffle(letter_set)
+                if valid_dataset is not None:
+                    valid_letter = letter_set[:vsize_per_class, :, :]
+                    valid_dataset[start_v:end_v, :, :] = valid_letter
+                    valid_labels[start_v:end_v] = label
+                    start_v += vsize_per_class
+                    end_v += vsize_per_class
+
+                train_letter = letter_set[vsize_per_class:end_l, :, :]
+                train_dataset[start_t:end_t, :, :] = train_letter
+                train_labels[start_t:end_t] = label
+                start_t += tsize_per_class
+                end_t += tsize_per_class
+        except Exception as e:
+            print('Unable to process data from', pickle_file, ':', e)
+            raise
+
+    return valid_dataset, valid_labels, train_dataset, train_labels
+
+
+train_size = 200000
+valid_size = 10000
+test_size = 10000
+
+valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
+    train_datasets, train_size, valid_size)
+_, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
+
+print('Training:', train_dataset.shape, train_labels.shape)
+print('Validation:', valid_dataset.shape, valid_labels.shape)
+print('Testing:', test_dataset.shape, test_labels.shape)
+
+
+def randomize(dataset, labels):
+    permutation = np.random.permutation(labels.shape[0])
+    shuffled_dataset = dataset[permutation, :, :]
+    shuffled_labels = labels[permutation]
+    return shuffled_dataset, shuffled_labels
+
+
+train_dataset, train_labels = randomize(train_dataset, train_labels)
+test_dataset, test_labels = randomize(test_dataset, test_labels)
+valid_dataset, valid_labels = randomize(valid_dataset, valid_labels)
+
+
+def letter(i):
+    return string.ascii_lowercase[:26][i]
+
+
+def sample_data(dataset, labels, size, figure_name):
+    rand_index = random.sample(range(len(dataset)), size)
+    sample_data = [dataset[i] for i in rand_index]
+    sample_label = [letter(labels[i]) for i in rand_index]
+    display_letters(sample_data, sample_label, figure_name)
+
+
+sample_data(test_dataset, test_labels, 10, 'Testing data')
+sample_data(train_dataset, train_labels, 10, 'Training data')
+
+
+def label_count(labels):
+    c = collections.Counter(labels)
+    c = dict((letter(key), value) for (key, value) in c.items())
+    return sorted(c.items(), key=itemgetter(0))
+
+
+print(label_count(test_labels))
+print(label_count(train_labels))
+
+print('Computing MD5 ...')
+set_test_dataset = set([md5(d).hexdigest() for d in test_dataset])
+set_valid_dataset = set([md5(d).hexdigest() for d in valid_dataset])
+set_train_dataset = set([md5(d).hexdigest() for d in train_dataset])
+
+unique_test_dataset = set_test_dataset - set_valid_dataset - set_train_dataset
+unique_valid_dataset = set_valid_dataset - set_test_dataset - set_train_dataset
+unique_train_dataset = set_train_dataset - set_test_dataset - set_valid_dataset
+
+print('Train dataset: ' + str(len(train_dataset)) + ' set: ' + str(len(set_train_dataset)) + ' unique:' + str(
+    len(unique_train_dataset)))
+print('Valid dataset: ' + str(len(valid_dataset)) + ' set: ' + str(len(set_valid_dataset)) + ' unique:' + str(
+    len(unique_valid_dataset)))
+print('Test dataset: ' + str(len(test_dataset)) + ' set: ' + str(len(set_test_dataset)) + ' unique:' + str(
+    len(unique_test_dataset)))
+
+
+def sanetize(dataset1, dataset2, labels1):
+    hash1 = np.array([md5(d).hexdigest() for d in dataset1])
+    hash2 = np.array([md5(d).hexdigest() for d in dataset2])
+    seen = []
+    overlap = []
+    for i, value in enumerate(hash1):
+        duplicates = np.where(hash2 == value)
+        if len(duplicates[0]) or value in seen:
+            overlap.append(i)
+        seen.append(value)
+    return np.delete(dataset1, overlap, 0), np.delete(labels1, overlap, None)
+
+
+print('Santize testing data ...')
+test_dataset, test_labels = sanetize(test_dataset, train_dataset, test_labels)
+test_dataset, test_labels = sanetize(test_dataset, valid_dataset, test_labels)
+
+pickle_file = 'notMNIST.pickle'
+
+
+def maybe_final_pickle(all_dataset, force=False):
+    if not force and os.path.exists(pickle_file):
+        print('%s already present - Skipping.' % pickle_file)
+    else:
+        try:
+            f = open(pickle_file, 'wb')
+            pickle.dump(all_dataset, f, pickle.HIGHEST_PROTOCOL)
+            f.close()
+        except Exception as e:
+            print('Unable to save data to', pickle_file, ':', e)
+            raise
+
+        statinfo = os.stat(pickle_file)
+        print('Compressed pickle size:', statinfo.st_size)
+
+
+save = {
+    'train_dataset': train_dataset,
+    'train_labels': train_labels,
+    'valid_dataset': valid_dataset,
+    'valid_labels': valid_labels,
+    'test_dataset': test_dataset,
+    'test_labels': test_labels,
+}
+
+maybe_final_pickle(save)
+
+
+def load_final_pickle():
+    datasets = {}
+    try:
+        with open(pickle_file, 'rb') as f:
+            datasets = pickle.load(f)
+    except Exception as ex:
+        print(ex)
+    return datasets
+
+
+save = load_final_pickle()
+
+print("Train & testing")
+
+train_dataset = save['train_dataset']
+train_labels = save['train_labels']
+
+test_dataset = save['test_dataset'].reshape(save['test_dataset'].shape[0], 28 * 28)
+test_labels = save['test_labels']
+
+
+def create_model(dataset, labels, size):
+    X_train = dataset[:size].reshape(size, 28 * 28)
+    y_train = labels[:size]
+    lr = LogisticRegression()
+    lr.fit(X_train, y_train)
+    return lr
+
+
+m50 = create_model(train_dataset, train_labels, 50)
+print('Score for model 50:', m50.score(test_dataset, test_labels))
+
+m100 = create_model(train_dataset, train_labels, 100)
+print('Score for model 100:', m100.score(test_dataset, test_labels))
+
+m1000 = create_model(train_dataset, train_labels, 1000)
+print('Score for model 1000: ', m1000.score(test_dataset, test_labels))
+
+m5000 = create_model(train_dataset, train_labels, 5000)
+print('Score for model 5000: ', m5000.score(test_dataset, test_labels))
+
+pred_labels = m5000.predict(test_dataset)
+sample_data(save['test_dataset'], pred_labels, 10, 'Prediction on test data')
