@@ -28,13 +28,17 @@ from hashlib import md5
 # %matplotlib inline
 
 # Set working directory to tmp to story all data & pickle files
-tmp_dir = 'tmp'
-if not os.path.exists(tmp_dir):
-    os.makedirs(tmp_dir)
-os.chdir(tmp_dir)
-print("Change working directory to", os.getcwd())
+def set_working_dir():
+    tmp_dir = 'tmp'
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
+    os.chdir(tmp_dir)
+    print("Change working directory to", os.getcwd())
+
+set_working_dir()
 
 do_plotting = True
+force = False
 
 url = 'http://commondatastorage.googleapis.com/books1000/'
 last_percent_reported = None
@@ -58,7 +62,7 @@ def download_progress_hook(count, blockSize, totalSize):
         last_percent_reported = percent
 
 
-def maybe_download(filename, expected_bytes, force=False):
+def maybe_download(filename, expected_bytes):
     """Download a file if not present, and make sure it's the right size."""
     if force or not os.path.exists(filename):
         print('\nAttempting to download:', filename)
@@ -80,7 +84,7 @@ num_classes = 10
 np.random.seed(133)
 
 
-def maybe_extract(filename, force=False):
+def maybe_extract(filename):
     root = os.path.splitext(os.path.splitext(filename)[0])[0]  # remove .tar.gz
     if os.path.isdir(root) and not force:
         # You may override by setting force=True.
@@ -98,10 +102,11 @@ def maybe_extract(filename, force=False):
         raise Exception(
             'Expected %d folders, one per class. Found %d instead.' % (
                 num_classes, len(data_folders)))
-    print(root, data_folders)
+    print('Extracted dir:', root, data_folders)
     return data_folders
 
 
+print('Locate or extract dataset:')
 test_folders = maybe_extract(test_filename)
 train_folders = maybe_extract(train_filename)
 
@@ -121,6 +126,7 @@ def display_samples(folders):
         display(i)
 
 
+print('Display random image for each class:')
 display_samples(test_folders)
 # display_samples(train_folders)
 
@@ -133,7 +139,7 @@ def load_letter(folder, min_num_images):
     image_files = os.listdir(folder)
     dataset = np.ndarray(shape=(len(image_files), image_size, image_size),
                          dtype=np.float32)
-    print(folder)
+    print('Loading data for the class folder:', folder)
     num_images = 0
     for image in image_files:
         image_file = os.path.join(folder, image)
@@ -158,7 +164,7 @@ def load_letter(folder, min_num_images):
     return dataset
 
 
-def maybe_pickle(data_folders, min_num_images_per_class, force=False):
+def maybe_pickle(data_folders, min_num_images_per_class):
     dataset_names = []
     for folder in data_folders:
         set_filename = folder + '.pickle'
@@ -177,7 +183,7 @@ def maybe_pickle(data_folders, min_num_images_per_class, force=False):
 
     return dataset_names
 
-
+print('Pickle train and test images for each class if needed:')
 test_datasets = maybe_pickle(test_folders, 1800)
 train_datasets = maybe_pickle(train_folders, 45000)
 
@@ -189,7 +195,7 @@ def display_letters(letters, labels, figure_name):
     if not do_plotting:
         return
     fig = plt.figure()
-    fig.suptitle(figure_name + ' (Close this window to continue)', fontsize=20)
+    fig.suptitle(figure_name + ' (close this window to continue)', fontsize=20)
     total = len(letters)
     for index, image in enumerate(letters):
         a = fig.add_subplot(1, total, index + 1)
@@ -217,6 +223,7 @@ def display_each_letter(datasets):
     display_letters(letters, labels, figure_name)
 
 
+print('Load and display 1 letter per class:')
 display_each_letter(test_datasets)
 display_each_letter(train_datasets)
 
@@ -230,7 +237,7 @@ def verify_balance(datasets):
         except Exception as e:
             print('Unable to load data from', pickle_name, ':', e)
 
-
+print('Verify if each class contains similar amount of images:')
 verify_balance(test_datasets)
 verify_balance(train_datasets)
 
@@ -287,6 +294,7 @@ valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
     train_datasets, train_size, valid_size)
 _, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
 
+print('Dataset shape before sanitize:')
 print('Training:', train_dataset.shape, train_labels.shape)
 print('Validation:', valid_dataset.shape, valid_labels.shape)
 print('Testing:', test_dataset.shape, test_labels.shape)
@@ -324,35 +332,18 @@ def label_count(labels):
     c = dict((letter(key), value) for (key, value) in c.items())
     return sorted(c.items(), key=itemgetter(0))
 
+print('Count for each class:')
+print('Test dataset:', label_count(test_labels))
+print('Train dataset:', label_count(train_labels))
 
-print(label_count(test_labels))
-print(label_count(train_labels))
-
-print('Computing MD5 ...')
-set_test_dataset = set([md5(d).hexdigest() for d in test_dataset])
-set_valid_dataset = set([md5(d).hexdigest() for d in valid_dataset])
-set_train_dataset = set([md5(d).hexdigest() for d in train_dataset])
-
-unique_test_dataset = set_test_dataset - set_valid_dataset - set_train_dataset
-unique_valid_dataset = set_valid_dataset - set_test_dataset - set_train_dataset
-unique_train_dataset = set_train_dataset - set_test_dataset - set_valid_dataset
-
-print('Train dataset: ' + str(len(train_dataset)) + ' set: ' + str(len(set_train_dataset)) + ' unique:' + str(
-    len(unique_train_dataset)))
-print('Valid dataset: ' + str(len(valid_dataset)) + ' set: ' + str(len(set_valid_dataset)) + ' unique:' + str(
-    len(unique_valid_dataset)))
-print('Test dataset: ' + str(len(test_dataset)) + ' set: ' + str(len(set_test_dataset)) + ' unique:' + str(
-    len(unique_test_dataset)))
-
-
-def sanetize(dataset1, dataset2, labels1):
+def sanitize(dataset1, dataset2, labels1):
     hash1 = np.array([md5(d).hexdigest() for d in dataset1])
-    hash2 = np.array([md5(d).hexdigest() for d in dataset2])
+    hash2 = np.array([md5(d).hexdigest() for d in dataset2]) if dataset2 is not None else None
     seen = []
     overlap = []
     for i, value in enumerate(hash1):
-        duplicates = np.where(hash2 == value)
-        if len(duplicates[0]) or value in seen:
+        is_overlap = len(np.where(hash2 == value)[0]) if dataset2 is not None else False
+        if is_overlap or value in seen:
             overlap.append(i)
         seen.append(value)
     return np.delete(dataset1, overlap, 0), np.delete(labels1, overlap, None)
@@ -360,11 +351,39 @@ def sanetize(dataset1, dataset2, labels1):
 pickle_file = 'notMNIST.pickle'
 
 if not os.path.exists(pickle_file):
-    print('Sanitize testing data ... may take a while.')
-    test_dataset, test_labels = sanetize(test_dataset, train_dataset, test_labels)
-    test_dataset, test_labels = sanetize(test_dataset, valid_dataset, test_labels)
+    print('Computing MD5 ...')
+    set_test_dataset = set([md5(d).hexdigest() for d in test_dataset])
+    set_valid_dataset = set([md5(d).hexdigest() for d in valid_dataset])
+    set_train_dataset = set([md5(d).hexdigest() for d in train_dataset])
 
-def maybe_final_pickle(all_dataset, force=False):
+    unique_test_dataset = set_test_dataset - set_valid_dataset - set_train_dataset
+    unique_valid_dataset = set_valid_dataset - set_test_dataset - set_train_dataset
+    unique_train_dataset = set_train_dataset - set_test_dataset - set_valid_dataset
+
+    print('Compute overlap:')
+    print('Train dataset: ' + str(len(train_dataset)) + ' set: ' + str(len(set_train_dataset)) + ' unique: ' + str(
+        len(unique_train_dataset)))
+    print('Valid dataset: ' + str(len(valid_dataset)) + ' set: ' + str(len(set_valid_dataset)) + ' unique: ' + str(
+        len(unique_valid_dataset)))
+    print('Test dataset: ' + str(len(test_dataset)) + ' set: ' + str(len(set_test_dataset)) + ' unique: ' + str(
+        len(unique_test_dataset)))
+
+    print('Sanitize training data ... may take a while.')
+    train_dataset, train_labels = sanitize(train_dataset, None, train_labels)
+    print('Sanitize testing data ... may take a while.')
+    test_dataset, test_labels = sanitize(test_dataset, train_dataset, test_labels)
+    test_dataset, test_labels = sanitize(test_dataset, valid_dataset, test_labels)
+    print('Sanitize validation data ... may take a while.')
+    valid_dataset, valid_labels = sanitize(valid_dataset, train_dataset, valid_labels)
+    valid_dataset, valid_labels = sanitize(valid_dataset, test_dataset, valid_labels)
+
+    print('After sanitize:')
+    print('Train dataset: ' + str(len(train_dataset)) + ' labels: ' + str(len(train_labels)))
+    print('Valid dataset: ' + str(len(valid_dataset)) + ' labels: ' + str(len(valid_labels)))
+    print('Test dataset: ' + str(len(test_dataset)) + ' labels: ' + str(len(test_labels)))
+
+
+def maybe_final_pickle(all_dataset):
     if not force and os.path.exists(pickle_file):
         print('%s already present - Skipping.' % pickle_file)
     else:
@@ -404,17 +423,24 @@ def load_final_pickle():
 
 save = load_final_pickle()
 
-print("Train & testing")
+print('Checking dataset shape before training:')
+print('Training:', train_dataset.shape, train_labels.shape)
+print('Validation:', valid_dataset.shape, valid_labels.shape)
+print('Testing:', test_dataset.shape, test_labels.shape)
+
+print("Train & testing: 50, 100, 1000, 5000 model (5000 will take a while)")
 
 train_dataset = save['train_dataset']
 train_labels = save['train_labels']
 
-test_dataset = save['test_dataset'].reshape(save['test_dataset'].shape[0], 28 * 28)
+valid_dataset = save['valid_dataset']
+valid_labels = save['valid_labels']
+
+test_dataset = save['test_dataset'].reshape(save['test_dataset'].shape[0], image_size * image_size)
 test_labels = save['test_labels']
 
-
 def create_model(dataset, labels, size):
-    X_train = dataset[:size].reshape(size, 28 * 28)
+    X_train = dataset[:size].reshape(size, image_size * image_size)
     y_train = labels[:size]
     lr = LogisticRegression()
     lr.fit(X_train, y_train)
