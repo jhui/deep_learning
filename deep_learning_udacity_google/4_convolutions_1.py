@@ -81,7 +81,6 @@ with graph.as_default():
         [num_hidden, num_labels], stddev=0.1))
     layer4_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
 
-
     # Model.
     def model(data):
         conv = tf.nn.conv2d(data, layer1_weights, [1, 2, 2, 1], padding='SAME')
@@ -92,7 +91,6 @@ with graph.as_default():
         reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
         hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
         return tf.matmul(hidden, layer4_weights) + layer4_biases
-
 
     # Training computation.
     logits = model(tf_train_dataset)
@@ -125,3 +123,5 @@ with tf.Session(graph=graph) as session:
       print('Validation accuracy: %.1f%%' % accuracy(
         valid_prediction.eval(), valid_labels))
   print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
+
+  # Test accuracy: 89.2%
