@@ -23,6 +23,9 @@ def set_working_dir():
 
 set_working_dir()
 
+do_plotting = True
+force = False
+
 url = 'http://mattmahoney.net/dc/'
 
 last_percent_reported = None
@@ -97,43 +100,38 @@ print('Most common words (+UNK)', count[:5])
 print('Sample data', data[:10])
 del words  # Hint to reduce memory.
 
-def generate_batch(batch_size, num_skips, skip_window):
+data_index = 0
+
+def generate_batch(batch_size, bag_window):
   global data_index
-  assert batch_size % num_skips == 0
-  assert num_skips <= 2 * skip_window
-  batch = np.ndarray(shape=(batch_size), dtype=np.int32)
+  span = 2 * bag_window + 1
+  batch = np.ndarray(shape=(batch_size, span - 1), dtype=np.int32)
   labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
-  span = 2 * skip_window + 1 # [ skip_window target skip_window ]
   buffer = collections.deque(maxlen=span)
   for _ in range(span):
     buffer.append(data[data_index])
     data_index = (data_index + 1) % len(data)
-  for i in range(batch_size // num_skips):
-    target = skip_window  # target label at the center of the buffer
-    targets_to_avoid = [ skip_window ]
-    for j in range(num_skips):
-      while target in targets_to_avoid:
-        target = random.randint(0, span - 1)
-      targets_to_avoid.append(target)
-      batch[i * num_skips + j] = buffer[skip_window]
-      labels[i * num_skips + j, 0] = buffer[target]
+  for i in range(batch_size):
+    buffer_span = list(buffer)
+    labels[i, 0] = buffer_span.pop(bag_window)
+    batch[i] = buffer_span
     buffer.append(data[data_index])
     data_index = (data_index + 1) % len(data)
   return batch, labels
 
-print('data:', [reverse_dictionary[di] for di in data[:8]])
+print('data:', [reverse_dictionary[di] for di in data[:16]])
 
-for num_skips, skip_window in [(2, 1), (4, 2)]:
-    data_index = 0
-    batch, labels = generate_batch(batch_size=8, num_skips=num_skips, skip_window=skip_window)
-    print('\nwith num_skips = %d and skip_window = %d:' % (num_skips, skip_window))
-    print('    batch:', [reverse_dictionary[bi] for bi in batch])
-    print('    labels:', [reverse_dictionary[li] for li in labels.reshape(8)])
+for bag_window in [1, 2]:
+  data_index = 0
+  batch, labels = generate_batch(batch_size=8, bag_window=bag_window)
+  print('\nwith bag_window = %d:' % (bag_window))
+  print('    batch:', [[reverse_dictionary[w] for w in bi] for bi in batch])
+  print('    labels:', [reverse_dictionary[li] for li in labels.reshape(8)])
 
 batch_size = 128
 embedding_size = 128  # Dimension of the embedding vector.
-skip_window = 1  # How many words to consider left and right.
-num_skips = 2  # How many times to reuse an input to generate a label.
+bag_window = 2 # How many words to consider left and right.
+
 # We pick a random validation set to sample nearest neighbors. here we limit the
 # validation samples to the words that have a low numeric ID, which by
 # construction are also the most frequent.
@@ -146,7 +144,7 @@ graph = tf.Graph()
 
 with graph.as_default(), tf.device('/cpu:0'):
     # Input data.
-    train_dataset = tf.placeholder(tf.int32, shape=[batch_size])
+    train_dataset = tf.placeholder(tf.int32, shape=[batch_size, bag_window * 2])
     train_labels = tf.placeholder(tf.int32, shape=[batch_size, 1])
     valid_dataset = tf.constant(valid_examples, dtype=tf.int32)
 
@@ -163,9 +161,8 @@ with graph.as_default(), tf.device('/cpu:0'):
     embed = tf.nn.embedding_lookup(embeddings, train_dataset)
     # Compute the softmax loss, using a sample of the negative labels each time.
     loss = tf.reduce_mean(
-        tf.nn.sampled_softmax_loss(softmax_weights, softmax_biases, embed,
+        tf.nn.sampled_softmax_loss(softmax_weights, softmax_biases, tf.reduce_sum(embed, 1),
                                    train_labels, num_sampled, vocabulary_size))
-
     # Optimizer.
     # Note: The optimizer will optimize the softmax_weights AND the embeddings.
     # This is because the embeddings are defined as a variable quantity and the
@@ -182,6 +179,7 @@ with graph.as_default(), tf.device('/cpu:0'):
         normalized_embeddings, valid_dataset)
     similarity = tf.matmul(valid_embeddings, tf.transpose(normalized_embeddings))
 
+
 num_steps = 100001
 
 with tf.Session(graph=graph) as session:
@@ -190,7 +188,7 @@ with tf.Session(graph=graph) as session:
   average_loss = 0
   for step in range(num_steps):
     batch_data, batch_labels = generate_batch(
-      batch_size, num_skips, skip_window)
+      batch_size, bag_window)
     feed_dict = {train_dataset : batch_data, train_labels : batch_labels}
     _, l = session.run([optimizer, loss], feed_dict=feed_dict)
     average_loss += l
