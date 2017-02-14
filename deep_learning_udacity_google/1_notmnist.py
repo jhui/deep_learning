@@ -1,6 +1,6 @@
 # pip3 install matplotlib
 # pip3 install numpy
-# pip install --upgrade "ipython[all]"
+# pip3 install --upgrade "ipython[all]"
 # pip3 install scipy
 # pip3 install sklearn
 # pip3 install Pillow
