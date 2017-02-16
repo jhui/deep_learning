@@ -227,7 +227,6 @@ class CaptioningRNN(object):
         next_h, cache = rnn_step_forward(np.squeeze(embed), next_h, Wx, Wh, b)
       else:
         next_h, next_c, cache = lstm_step_forward(np.squeeze(embed), next_h, next_c, Wx, Wh, b)
-        prev_h = next_h
       scores, _ = affine_forward(next_h, W_vocab, b_vocab)
       captions[:, t] = scores.argmax(axis=1)
       prev_word = captions[:, t].reshape(N, 1)

@@ -6,7 +6,7 @@ a = np.arange(10).reshape(2, 5)     # ndarray([[ 0  1  2  3  4],
 print(a)
 a.shape             # (2, 5)
 a.ndim              # 2
-a.dtype.name        # 'int64'
+a.dtype.name        # 'int64' (others: float32, float64,...)
 a.itemsize          # 8
 a.size              # 10
 type(a)             # <type 'numpy.ndarray'>
@@ -16,7 +16,7 @@ b = np.array([1, 2, 3])
 b = np.array([[1.1, 2.0, 3], [4, 5, 6]])
 b = np.array([(1.1, 2.0, 3), (4, 5, 6)])
 
-b = np.array([[1.1, 2, 3], [4, 5, 6]], dtype='float32')  # Set type
+b = np.array([[1.1, 2, 3], [4, 5, 6]], dtype=np.float32)  # Set type
 
 np.empty((2, 4))                    # Uninitialized. Value un-determine.
 np.zeros((2, 4))
@@ -32,22 +32,30 @@ np.arange(0, 1, 0.2)                # ndarray([ 0. 0.2  0.4  0.6  0.8]
 np.linspace(0, 2, 8)                # 9 numbers (0 to 2 inclusive) ndarray([0. 0.25 0.5 ... 1.75 2.])
 np.logspace(1.0, 2.0, num=4)        # ndarray([10. 21.5443469 46.41588834  100.]
 
-np.random.random((2, 4))
-np.floor(10 * np.random.random((4, 3)))  # number from 0 to 9
+np.random.random((2, 4))            # [0, 1)
+
+np.random.randint(5, size=10)       # number from 0 to 4
+np.random.randint(5, size=(2, 4))
 
 np.random.randn(10, 2, 3)           # 10x2x3 array with normal distribution
+
+a = np.array([1, 5, 7, 8])
+c = np.random.choice(a, 3, replace=False)   # ndarray([8 5 7])
+
+c = np.random.choice(len(a), 2)
+a[c]
 
 def f(x, y):
     return 10 * x + y
 
 b = np.fromfunction(f, (5, 4),
-                    dtype=int)  # ndarray([[ 0,  1,  2,  3], [10, 11, 12, 13], [20, 21, 22, 23], ..., [40, 41, 42, 43]])
+                    dtype=np.int)  # ndarray([[ 0,  1,  2,  3], [10, 11, 12, 13], [20, 21, 22, 23], ..., [40, 41, 42, 43]])
 
 # Creation
 # arange, array, copy, empty, empty_like, eye, fromfile, fromfunction,
 # identity, linspace, logspace, mgrid, ogrid, ones, ones_like, r, zeros, zeros_like
 
-########### Reshape
+########### Reshape, Shape manipulation
 np.arange(12).reshape(4, 3)         # [[ 0  1  2] [ 3  4  5] [ 6  7  8] [ 9 10 11]]
 np.arange(24).reshape(2, 3, 4)
 
@@ -55,7 +63,6 @@ a = np.arange(20)
 a.shape = 2, -1, 2                  # -1 means "whatever it should be"
 a.shape                             # (2, 5, 2)
 
-########### Shape manipulation
 a = np.arange(12).reshape(4, 3)
 a.ravel()                           # flattened ndarray([ 0 1 2 ... 11])
 a.reshape(6, 2)                     # ndarray([[ 0 1]  [2 3] ...[10 11]])
@@ -63,14 +70,20 @@ a.reshape(3, -1)                    # -1 will automatic calculated as 4
 a.T                                 # transposed ndarray([[ 0 3 6 9] [1 4 7 10] [2 5 8 11]])
 a.T.shape                           # (3, 4)
 
-a = np.arange(6)                    # ndarray([0, 1, 2, 3, 4])
+a = np.arange(6)                    # ndarray([0, 1, 2, 3, 4, 5])
 a.reshape(2, 3)                     # a remains as ndarray [0 1 2 3 4 5]
 a.resize((2, 3))                    # a changes to [[1 2 3] [ 4 5 6]]
 
-from numpy import newaxis
-
 a = np.array([4., 2.])
-v =  a[:, newaxis]                  # ndarray([[ 4.], [ 2.]])
+v = a[:, np.newaxis]                # ndarray([[ 4.], [ 2.]])
+v = a[np.newaxis, :]                # ndarray([[ 4.  2.]])
+
+a = np.arange(6)                    # ndarray([0, 1, 2, 3, 4, 5])
+np.reshape(a, (a.shape[0], -1))     # a[:, np.newaxis]
+
+C = 3
+x = np.random.randn((100, C, 10, 10))
+x_flat = x.transpose(0, 2, 3, 1).reshape(-1, C)
 
 ########### Indexing
 # Access
@@ -84,6 +97,8 @@ a = np.arange(12).reshape(3, 4)     # ndarray([[ 0  1  2  3]
                                     #          [ 4  5  6  7]
                                     #          [ 8  9 10 11]]
 
+a[0:2]                              # ndarray([[ 0  1  2  3]
+                                    #          [ 4  5  6  7]
 a[2, 3]                             # 11
 a[0:, 1]                            # Second column of each row ndarray([ 1 5 9])
 a[:, 1]                             # same
@@ -105,11 +120,19 @@ a[1, ...]                           # a[1,:,:] or a[1] [[10 11 12] [13 14 15]]
 a[..., 2]                           # same as a[:,:,2] [[ 2 5] [12 15]]
 
 # Assign
-a = np.arange(5)                    # ndarray([0, 1, 2, 3, 4])
-a[[1, 2, 4]] = 0                    # ndarray([0, 0, 0, 3, 0])
+a = np.arange(5)                    # ndarray([0 1 2 3 4])
+a[[1, 2, 4]] = 0                    # ndarray([0 0 0 3 0])
 
-a = np.arange(5)                    # ndarray([0, 1, 2, 3, 4])
-a[[0, 0, 2]] = [1, 2, 3]            # ndarray([2, 1, 3, 3, 4])
+a = np.arange(5)                    # ndarray([0 1 2 3 4])
+a[[0, 0, 2]] = [1, 2, 3]            # ndarray([2 1 3 3 4])
+
+a = np.arange(12).reshape(3, 4)
+a[[0, 2]] = 0                       # ndarray([[0 0 0 0]
+                                    #          [4 5 6 7]
+                                    #          [0 0 0 0]])
+
+y = np.array([1, 2, 4, 2, 1])       # Find index with element value==2
+index = np.flatnonzero(y == 2)      # ndarray([1 3])
 
 # Mask by boolean
 a = np.arange(12).reshape(3, 4)
@@ -120,8 +143,8 @@ b = a > 4                           # ndarray([[False, False, False, False],
 a[b]                                # 1d array ndarray([ 5,  6,  7,  8,  9, 10, 11])
 
 a[a>4] = 0                          # All elements of 'a' higher than 4 become 0
-                                    # ndarray([[0, 1, 2, 3],
-                                    #          [4, 0, 0, 0],
+                                    # ndarray([[0, 1, 2, 3]
+                                    #          [4, 0, 0, 0]
                                     #          [0, 0, 0, 0]])
 
 
@@ -129,13 +152,13 @@ a = np.arange(12).reshape(3, 4)
 b1 = np.array([False, True, True])          # 1D selection
 b2 = np.array([True, False, True, True])    # 2D selection
 a[b1, :]                            # selecting rows
-                                    # ndarray([[ 4,  5,  6,  7],
+                                    # ndarray([[ 4,  5,  6,  7]
                                     #          [ 8,  9, 10, 11]])
 a[b1]                               # same
 
 b = a[:, b2]                        # selecting columns
-                                    # ndarray([[ 0 2 3],
-                                    #          [ 4 6 7],
+                                    # ndarray([[ 0 2 3]
+                                    #          [ 4 6 7]
                                     #          [ 8 10 11]])
 
 a = np.arange(12).reshape(3, 4)     # ndarray([[ 0  1  2  3]
@@ -148,17 +171,24 @@ a[:, y]                             # Not the same as above
                                     #          [ 4  7  5]
                                     #          [ 8 11  9]]
 
-# Mask by index
-a = np.arange(12) * 2               # Multiple each element by 2
+x = np.array([0, 2, 1])
+y = np.array([0, 3, 1])             # Dimension of x and y needs to be match.
+b = a[x, y]                         # ndarray([0 11 5])
+
+
+########## Mask by index
+a = np.arange(12) * 2               # ndarray([ 0  2  4  6  8 10 12 14 16 18 20 22])
+
+# The return result will have the same shape as the index.
+# Each index will be replaced by the element it indexed.
 i = np.array([1, 1, 4, 8, 2])       # an array of indices
 a[i]                                # ndarray([2 2 8 16 4])
 
 j = np.array([[3, 4], [5, 1]])
 a[j]                                # the same shape as j [[ 6  8]
                                     #                      [10 2]]
-
 palette = np.array([[0, 0, 0],        # black
-                     [255, 255, 255], # white
+                    [255, 255, 255],  # white
                     [255, 0, 0],      # red
                     [0, 255, 0],      # green
                     [0, 0, 255]])     # blue
@@ -175,7 +205,7 @@ palette[image]                        # Replace each index with its value
                                       #   [  0   0 255]
                                       #   [  0   0   0]]]
 
-
+### For multi-dimensional indexing
 a = np.arange(12).reshape(3, 4)  # ndarray([[ 0,  1,  2,  3],
                                  #          [ 4,  5,  6,  7],
                                  #          [ 8,  9, 10, 11]])
@@ -184,20 +214,20 @@ i = np.array([[0, 1],
 j = np.array([[2, 1],
               [3, 0]])
 
-a[i, j]                          # i and j must have equal shape
-                                 # [[2 5]
+# i, j must be same shape (or broadcast) so they can combined to form a 2D index
+a[i, j]                          # [[2 5]
                                  #  [7 8]]
                                  # [[a[0, 2] a[1, 1]
                                  #  [a[1, 3] a[2, 0]]
 
 a[i, 2]                          # ndarray([[ 2  6]
                                  #          [ 6 10]])
+
 b = a[:, j]
                                  # [[[ 2  1]
                                  #   [ 3  0]]
                                  #  [[ 6  5]
                                  #   [ 7  4]]
-                                 #
                                  #  [[10  9]
                                  #   [11  8]]]
 
@@ -208,6 +238,7 @@ a = np.array([[1, 4, 6], [3, 2, 4]])
 max_column_index = a.argmax(axis=0)                # ndarray([1 0 0 ])
 max_data = a[max_column_index, range(a.shape[1])]  # ndarray([3 4 6])
 np.all( max_data == a.max(axis=0))                 # True
+
 
 ########### Broadcasting
 # A      (4d array):  8 x 1 x 6 x 1
@@ -265,10 +296,20 @@ A * B                            # element-wise product
 v = A.dot(B)                     # matrix product ndarray([[9 6] [11  7]])
 np.dot(A, B)                     # same
 
+########### Conditional
+x = np.random.randn(100)
+dout = np.random.randn(100)
+dx = np.where(x > 0, dout, 0)
+
 ########### Aggregiation
 a.sum()
 a.min()
 a.max()
+
+a = np.array([1, 1, 3, 3, 1])
+b = np.array([1, 4, 3, 3, 4])
+np.sum(a==3)                     # 2
+np.sum(a==b)                     # 3
 
 a = np.arange(8).reshape(2, 4)   # ndarray([[ 0 1 2 3],
                                  #          [ 4 5 6 7]])
@@ -281,7 +322,18 @@ a.cumsum(axis=1)                 # cumulative sum along each row ndarray([[ 0 1 
 from collections import Counter
 a = np.array([1, 2, 2, 3, 1, 2])
 common = Counter(a)              # Counter({2: 3, 1: 2, 3: 1})
-v = common.most_common(1)[0][0]
+v = common.most_common(1)[0][0]  # 2
+
+scores = np.array( [ [0.3, 0.7],
+                     [0.6, 0.4],
+                     [0.4, 0.6]] )
+prediction_labels = scores.argmax(axis=1)   # ndarray([1 0 1])
+true_labels = np.array([1, 0, 0])
+
+matches = np.sum(prediction_labels == true_labels)
+accuracy = np.mean(prediction_labels == true_labels)
+
+prediction_score  = scores[range(scores.shape[0]), prediction_labels]
 
 ########## Statistics
 a = np.arange(8).reshape(2, 4)   # ndarray([[ 0 1 2 3],
@@ -318,24 +370,40 @@ np.divide(x, y)
 
 np.sqrt(x)
 
+np.prod(x)              # Multiple elements
+
+np.maximum(0, x)        # Replace element smaller than 0 with 0
+
 # all, any, apply_along_axis, argmax, argmin, argsort, average, bincount, ceil,
 # clip, conj, corrcoef, cov, cross, cumprod, cumsum, diff, dot, floor, inner, inv,
 # lexsort, max, maximum, mean, median, min, minimum, nonzero, outer, prod, re, round,
 # sort, std, sum, trace, transpose, var, vdot, vectorize, where
 
-########### Stacking
+########### Concatentate, Stacking
+a = np.arange(3)
+b = np.arange(3, 6)
+
+np.concatenate((a, b))   # ndarray([0 1 2 3 4 5])
+
+a = np.array([[4, 2], [1, 3]])
+v = np.hstack((np.ones((a.shape[0], 1)), a)) # Prepend a 1 on each row
+
 a = np.array([[4, 2], [1, 3]])
 b = np.array([[1, 4], [0, 2]])
 
-np.vstack((a, b))        # ndarray([[[4 2] [1 3] [1 4] [0 2]]])
-np.hstack((a, b))        # ndarray([[[4 2 1 4] [1 3 0 2]]])
+np.concatenate((a,b), axis=0)  # ndarray([[4 2] [1 3] [1 4] [0 2]])
 
-np.column_stack((a, b))  # With 2D arrays ndarray([[[4 2 1 4] [1 3 0 2]]])
+np.vstack((a, b))        # ndarray([[4 2] [1 3] [1 4] [0 2]])
+np.hstack((a, b))        # ndarray([[4 2 1 4] [1 3 0 2]])
+
+np.column_stack((a, b))  # With 2D arrays ndarray([[4 2 1 4] [1 3 0 2]])
+
+np.hstack((np.ones(a.shape[0])[:, np.newaxis], a))  # Prepend a 1 on each row
 
 a = np.array([4, 1])
 b = np.array([3, 2])
-np.column_stack((a[:, newaxis], b[:, newaxis]))  # ndarray([[[4 3] [1 2]]])
-np.vstack((a[:, newaxis], b[:, newaxis]))        # ndarray([[[4] [1] [3] [2]]])
+np.column_stack((a[:, np.newaxis], b[:, np.newaxis]))  # ndarray([[[4 3] [1 2]]])
+np.vstack((a[:, np.newaxis], b[:, np.newaxis]))        # ndarray([[[4] [1] [3] [2]]])
 
 np.r_[1:5, 2, 4]                                 # ndarray([1 2 3 4 2 4])
 
@@ -378,66 +446,6 @@ s = a[:, 1:4]                                    # Slicing returns a view
 
 d = a.copy()                                     # New object with new data is created.
 
-########## Plotting
-import matplotlib.pyplot as plt
-
-# Plot 1
-mu, sigma = 1, 0.65
-v = np.random.normal(mu, sigma, 20000)
-plt.hist(v, bins=100, normed=1)
-plt.show()
-
-# Plot 2
-(n, bins) = np.histogram(v, bins=100, normed=True)
-plt.plot(.5 * (bins[1:] + bins[:-1]), n)
-plt.show()
-
-# Plot 3
-x = np.arange(0, 10 * np.pi, 0.1)
-y = np.sin(x)
-plt.plot(x, y)
-plt.show()
-
-# Plot 4
-x = np.arange(0, 10 * np.pi, 0.1)
-y_sin = np.sin(x)
-y_cos = np.cos(x)
-
-plt.plot(x, y_sin)
-plt.plot(x, y_cos)
-plt.xlabel('x axis')
-plt.ylabel('y axis')
-plt.title('Sine and Cosine')
-plt.legend(['Sine', 'Cosine'])
-plt.show()
-
-# Plot 5
-x = np.arange(0, 10 * np.pi, 0.1)
-y_sin = np.sin(x)
-y_cos = np.cos(x)
-
-plt.subplot(2, 1, 1)
-plt.plot(x, y_sin)
-plt.title('Sine')
-
-plt.subplot(2, 1, 2)
-plt.plot(x, y_cos)
-plt.title('Cosine')
-
-plt.show()
-
-######## ix_
-# ix_ construct index arrays that will index the cross product.
-# a[np.ix_([0,1],[3,2])] returns the array [[a[0,3] a[0,2]], [a[1,3] a[1,2]]].
-a = np.arange(10).reshape(2, 5)
-                                # array([[0, 1, 2, 3, 4],
-                                #       [5, 6, 7, 8, 9]])
-
-grid = np.ix_([0,1], [3, 2])    # (array([[0], [1]]), array([[3, 2]]))
-
-grid[0].shape, grid[1].shape    # (2, 1), (1, 2)
-a[grid]                         # [[3 2] [8 7]]
-
 
 ########## Linear algebra
 a = np.array([[1.0, 2.0], [3.0, 4.0]])
@@ -453,29 +461,17 @@ np.linalg.solve(a, y)
 j = np.array([[0.0, -3.0], [2.0, 0.0]])
 np.linalg.eig(j)                # Find eign value and vector
 
+######## ix_
+# ix_ construct index arrays that will index the cross product.
+# a[np.ix_([0,1],[3,2])] returns the array [[a[0,3] a[0,2]], [a[1,3] a[1,2]]].
+a = np.arange(10).reshape(2, 5)
+                                # array([[0, 1, 2, 3, 4],
+                                #       [5, 6, 7, 8, 9]])
 
-########## images
-from scipy.misc import imread, imsave, imresize
+grid = np.ix_([0,1], [3, 2])    # (array([[0], [1]]), array([[3, 2]]))
 
-img = imread('a.png')
-img.dtype                       # uint8
-img.shape                       # (28, 28)
-
-img_tinted = img * [0.95]       # [0.9, 0,95, 0.85] for RGB images
-img_tinted = imresize(img_tinted, (300, 300))
-imsave('a_tinted.png', img_tinted)
-
-
-img = imread('a.png')
-img_tinted = img * [0.95]
-
-plt.subplot(1, 2, 1)             # (1x2) plot. subplot index start from 1
-plt.imshow(img)
-
-plt.subplot(1, 2, 2)             # index 2
-# Cast the image to uint8 before display it to avoid strange behavior.
-plt.imshow(np.uint8(img_tinted))
-plt.show()
+grid[0].shape, grid[1].shape    # (2, 1), (1, 2)
+a[grid]                         # [[3 2] [8 7]]
 
 # conversion
 # ndarray.astype, atleast_1d, atleast_2d, atleast_3d, mat

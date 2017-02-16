@@ -1,3 +1,2 @@
-import numpy
-import caffe
-import lmdb
+import numpy as np
+

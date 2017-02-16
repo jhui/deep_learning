@@ -3,7 +3,7 @@ import numpy as np
 ########## Select class/Sample data
 ### For every class, sample 2 training data
 import string
-classes = string.ascii_lowercase[:27]
+classes = string.ascii_lowercase[:27]      # str 'abc...z'
 X_train = np.array(['c', 'b', 'b', 'a', 'c', 'b'])
 y_train = np.array([2, 1, 1, 0, 2, 1])
 num_samples = 2
@@ -17,7 +17,7 @@ for y, cls in enumerate(classes):
 X_valid = X_train[2:]                # ndarray(['b' 'a' 'c' 'b'])
 X_train = X_train[range(2)]          # ndarray(['c' 'b'])
 
-### Create training data - validation
+### Create training/valdiation data
 num_gp = 3
 X_train = np.array([1, 2, 3, 4, 5, 6])
 X_train_folds = np.array(np.array_split(X_train, num_gp)) # Split to 3 groups
@@ -40,7 +40,7 @@ X_train = np.array([ [ [[128, 129], [135, 35]],
                         [[128, 129], [135, 35]] ],
                      [ [[126, 129], [135, 35]],
                         [[128, 129], [135, 37]] ]
-                   ], dtype='float32')
+                   ], dtype=np.float32)
 mean_image = np.mean(X_train, axis=0)
 X_train  -= mean_image
 
@@ -67,8 +67,70 @@ x = np.array([2, 3, -1, -3])
 y = np.array([2, -3, 1, 4])
 x / (np.maximum(1e-8, np.add(x, y)))
 
-### Multiply
-np.prod(y)
+########## Training
+
+### Intialize weight for CNN (5x5 filter with 3 input feature map and 7 feature map output)
+feature_in = 5 * 5 * 3
+params = {}
+params['W%d' % 3] = np.sqrt(2.0 / feature_in) * np.random.randn(3, 7, 5, 5)
+for k, v in params.iteritems():
+    params[k] = v.astype(np.float32)
+
+### Intialize weight for FC (1024 input feature 256 output)
+feature_in = 1024
+np.sqrt(2.0 / feature_in) * np.random.randn(feature_in, 256)
+
+### Affine
+N, D, M = 100, 100, 4
+x = np.random.randn(N, 10, 10)
+w = np.random.randn(100, 4)
+b = np.random.randn(4)
+out = x.reshape(x.shape[0], -1).dot(w) + b
+
+### Affine backward
+
+dout = np.random.randn(N, M)
+dx = dout.dot(w.T).reshape(x.shape)
+dw = x.reshape(x.shape[0], -1).T.dot(dout)
+db = np.sum(dout, axis=0)
+
+### CNN Forward
+
+
+### Temporal output
+T, N, D, V, H = 10, 100, 10, 1000, 100
+
+state = {}
+x = np.random.randn(N, T, D)
+wh = np.random.randn(D, H)
+bh = np.zeros(H)
+h = np.zeros((N, T, H))
+
+for t in range(T):
+  xt = x[:, t, :]
+  state[t] = xt.dot(wh) + bh
+  h[:, t, :] = state[t]
+
+wo = np.random.randn(H, V)
+bo = np.random.randn(V)
+
+out = h.reshape(N * T, H).dot(wo).reshape(N, T, V) + bo
+
+########## Classifier
+def softmax_loss(X, y):
+  pros = np.exp(X - np.max(X, axis=1, keepdims=True))
+  pros /= np.sum(pros, axis=1, keepdims=True)
+  N = X.shape[0]
+  loss = -np.sum(np.log(pros[np.arange(N), y])) / N
+  dX = pros.copy()
+  dX[np.arange(N), y] -= 1
+  dX /= N
+  return loss, dX
+
+X = np.random.randn(10, 5)
+y = np.random.randint(5, size=10)
+
+softmax_loss(X, y)
 
 ########## Result calculation
 ### Count accurate prediction
