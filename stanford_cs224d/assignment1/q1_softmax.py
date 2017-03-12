@@ -21,7 +21,14 @@ def softmax(x):
     """
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    if x.ndim == 1:
+        x -= np.max(x)  # solving overflow problem
+        x = np.exp(x)
+        x /= np.sum(x)
+    else:
+        x -= np.max(x, axis=1, keepdims=True)
+        x = np.exp(x)
+        x /= np.sum(x, axis=1, keepdims=True)
     ### END YOUR CODE
     
     return x
@@ -58,8 +65,7 @@ def test_softmax():
     """
     print "Running your tests..."
     ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE  
+    ### END YOUR CODE
 
 if __name__ == "__main__":
     test_softmax_basic()
