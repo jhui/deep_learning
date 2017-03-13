@@ -51,7 +51,7 @@ class RNN_Model():
             node_tensors = node_tensors[tree.root]
         else:
             node_tensors = [tensor for node, tensor in node_tensors.iteritems() if node.label!=2]
-            node_tensors = tf.concat(0, node_tensors)
+            node_tensors = tf.concat(node_tensors, 0)
         return self.add_projections(node_tensors)
 
     def add_model_vars(self):
@@ -69,11 +69,14 @@ class RNN_Model():
         '''
         with tf.variable_scope('Composition'):
             ### YOUR CODE HERE
-            pass
+            tf.get_variable("embedding", [len(self.vocab),self.config.embed_size])
+            tf.get_variable("W1",[self.config.embed_size * 2, self.config.embed_size])
+            tf.get_variable("b1",[1, self.config.embed_size])
             ### END YOUR CODE
         with tf.variable_scope('Projection'):
             ### YOUR CODE HERE
-            pass
+            tf.get_variable("U",[self.config.embed_size, self.config.label_size])
+            tf.get_variable("b",[1,self.config.label_size])
             ### END YOUR CODE
 
     def add_model(self, node):
@@ -93,7 +96,9 @@ class RNN_Model():
         """
         with tf.variable_scope('Composition', reuse=True):
             ### YOUR CODE HERE
-            pass
+            embed = tf.get_variable("embedding",[len(self.vocab),self.config.embed_size])
+            W1 = tf.get_variable("W1",[self.config.embed_size * 2, self.config.embed_size])
+            b1 = tf.get_variable("b1",[1, self.config.embed_size])
             ### END YOUR CODE
 
 
@@ -101,13 +106,15 @@ class RNN_Model():
         curr_node_tensor = None
         if node.isLeaf:
             ### YOUR CODE HERE
-            pass
+            lookup = tf.gather(embed,self.vocab.encode(node.word))
+            curr_node_tensor = tf.expand_dims(lookup, 0)
             ### END YOUR CODE
         else:
             node_tensors.update(self.add_model(node.left))
             node_tensors.update(self.add_model(node.right))
             ### YOUR CODE HERE
-            pass
+            combined = tf.concat([node_tensors[node.left], node_tensors[node.right]], 1)
+            curr_node_tensor = tf.matmul(combined, W1) + b1
             ### END YOUR CODE
         node_tensors[node] = curr_node_tensor
         return node_tensors
@@ -123,7 +130,10 @@ class RNN_Model():
         """
         logits = None
         ### YOUR CODE HERE
-        pass
+        with tf.variable_scope('Projection', reuse=True):
+            U = tf.get_variable("U", [self.config.embed_size, self.config.label_size])
+            b = tf.get_variable("b", [1, self.config.label_size])
+            logits = tf.matmul(node_tensors,U) + b
         ### END YOUR CODE
         return logits
 
@@ -140,7 +150,12 @@ class RNN_Model():
         """
         loss = None
         # YOUR CODE HERE
-        pass
+        entrophy = tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits,labels=labels))
+        with tf.variable_scope('Composition', reuse=True):
+            l2_loss_composition = tf.nn.l2_loss(tf.get_variable("W1",[self.config.embed_size * 2, self.config.embed_size]))
+        with tf.variable_scope('Projection', reuse=True):
+            l2_loss_projection = tf.nn.l2_loss(tf.get_variable("U",[self.config.embed_size, self.config.label_size]))
+        loss = entrophy + (l2_loss_composition + l2_loss_projection)*self.config.l2
         # END YOUR CODE
         return loss
 
@@ -165,7 +180,7 @@ class RNN_Model():
         """
         train_op = None
         # YOUR CODE HERE
-        pass
+        train_op = tf.train.GradientDescentOptimizer(self.config.lr).minimize(loss)
         # END YOUR CODE
         return train_op
 
@@ -179,7 +194,7 @@ class RNN_Model():
         """
         predictions = None
         # YOUR CODE HERE
-        pass
+        predictions = tf.argmax(y, 1)
         # END YOUR CODE
         return predictions
 
@@ -214,7 +229,7 @@ class RNN_Model():
             with tf.Graph().as_default(), tf.Session() as sess:
                 self.add_model_vars()
                 if new_model:
-                    init = tf.initialize_all_variables()
+                    init = tf.global_variables_initializer()
                     sess.run(init)
                 else:
                     saver = tf.train.Saver()
@@ -225,7 +240,7 @@ class RNN_Model():
                     tree = self.train_data[step]
                     logits = self.inference(tree)
                     labels = [l for l in tree.labels if l!=2]
-                    loss = self.loss(logits, labels)
+                    loss = self.loss(logits=logits, labels=labels)
                     train_op = self.training(loss)
                     loss, _ = sess.run([loss, train_op])
                     loss_history.append(loss)
