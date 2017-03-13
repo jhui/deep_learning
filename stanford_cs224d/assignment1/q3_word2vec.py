@@ -10,7 +10,8 @@ def normalizeRows(x):
     # Implement a function that normalizes each row of a matrix to have unit length
     
     ### YOUR CODE HERE
-    raise NotImplementedError
+    y = np.linalg.norm(x, axis=1, keepdims=True)
+    x = x / (y + 1e-20)
     ### END YOUR CODE
     
     return x
@@ -50,7 +51,16 @@ def softmaxCostAndGradient(predicted, target, outputVectors, dataset):
     # assignment!                                                  
     
     ### YOUR CODE HERE
-    raise NotImplementedError
+    N, D = outputVectors.shape
+
+    prob = softmax(np.dot(predicted, outputVectors.T))
+    cost = -np.log(prob[target])
+
+    dx = prob
+    dx[target] -= 1.
+
+    gradPred = np.dot(dx, outputVectors)
+    grad = np.dot(dx.reshape((1, N)).T, predicted.reshape((1,D)))
     ### END YOUR CODE
     
     return cost, gradPred, grad
@@ -73,67 +83,104 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset,
     # assignment!
     
     ### YOUR CODE HERE
-    raise NotImplementedError
+    grad = np.zeros_like(outputVectors)
+
+    negative_samples = []
+    for k in range(K):
+        new_idx = dataset.sampleTokenIdx()
+        while new_idx == target:
+            new_idx = dataset.sampleTokenIdx()
+        negative_samples += [new_idx]
+    indices = [target] + negative_samples
+    embeddings = outputVectors[indices]
+
+    sign = np.array([1] + [-1 for _ in range(K)])
+
+    uv = np.dot(embeddings, predicted) * sign
+    probs = sigmoid(uv)
+    cost = - np.sum(np.log(probs))
+
+    dx = sign * (probs - 1)
+    gradPred = embeddings.T.dot(dx)
+    grad_temp = dx.reshape((K+1,1)).dot(predicted.reshape(1,predicted.shape[0]))
+
+    for k in range(K+1):
+        grad[indices[k]] += grad_temp[k,:]
     ### END YOUR CODE
     
     return cost, gradPred, grad
 
 
-def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors, 
-    dataset, word2vecCostAndGradient = softmaxCostAndGradient):
+def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors,
+             dataset, word2vecCostAndGradient=softmaxCostAndGradient):
     """ Skip-gram model in word2vec """
 
     # Implement the skip-gram model in this function.
 
-    # Inputs:                                                         
-    # - currrentWord: a string of the current center word           
-    # - C: integer, context size                                    
-    # - contextWords: list of no more than 2*C strings, the context words                                               
-    # - tokens: a dictionary that maps words to their indices in    
-    #      the word vector list                                
-    # - inputVectors: "input" word vectors (as rows) for all tokens           
-    # - outputVectors: "output" word vectors (as rows) for all tokens         
-    # - word2vecCostAndGradient: the cost and gradient function for 
-    #      a prediction vector given the target word vectors,  
-    #      could be one of the two cost functions you          
+    # Inputs:
+    # - currrentWord: a string of the current center word
+    # - C: integer, context size
+    # - contextWords: list of no more than 2*C strings, the context words
+    # - tokens: a dictionary that maps words to their indices in
+    #      the word vector list
+    # - inputVectors: "input" word vectors (as rows) for all tokens
+    # - outputVectors: "output" word vectors (as rows) for all tokens
+    # - word2vecCostAndGradient: the cost and gradient function for
+    #      a prediction vector given the target word vectors,
+    #      could be one of the two cost functions you
     #      implemented above
 
-    # Outputs:                                                        
-    # - cost: the cost function value for the skip-gram model       
-    # - grad: the gradient with respect to the word vectors         
-    # We will not provide starter code for this function, but feel    
-    # free to reference the code you previously wrote for this        
+    # Outputs:
+    # - cost: the cost function value for the skip-gram model
+    # - grad: the gradient with respect to the word vectors
+    # We will not provide starter code for this function, but feel
+    # free to reference the code you previously wrote for this
     # assignment!
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    cost = 0.0;
+    gradIn = np.zeros_like(inputVectors);
+    gradOut = np.zeros_like(outputVectors);
+
+    for word in contextWords:
+        dcost, dgradIn, dgradOut = word2vecCostAndGradient(inputVectors[tokens[currentWord]], tokens[word], outputVectors, dataset)
+        cost += dcost
+        gradIn[tokens[currentWord]] += dgradIn
+        gradOut += dgradOut
     ### END YOUR CODE
-    
+
     return cost, gradIn, gradOut
 
-def cbow(currentWord, C, contextWords, tokens, inputVectors, outputVectors, 
-    dataset, word2vecCostAndGradient = softmaxCostAndGradient):
+
+def cbow(currentWord, C, contextWords, tokens, inputVectors, outputVectors,
+         dataset, word2vecCostAndGradient=softmaxCostAndGradient):
     """ CBOW model in word2vec """
 
-    # Implement the continuous bag-of-words model in this function.            
-    # Input/Output specifications: same as the skip-gram model        
-    # We will not provide starter code for this function, but feel    
-    # free to reference the code you previously wrote for this        
+    # Implement the continuous bag-of-words model in this function.
+    # Input/Output specifications: same as the skip-gram model
+    # We will not provide starter code for this function, but feel
+    # free to reference the code you previously wrote for this
     # assignment!
 
     #################################################################
     # IMPLEMENTING CBOW IS EXTRA CREDIT, DERIVATIONS IN THE WRIITEN #
-    # ASSIGNMENT ARE NOT!                                           #  
+    # ASSIGNMENT ARE NOT!                                           #
     #################################################################
-    
+
     cost = 0
-    gradIn = np.zeros(inputVectors.shape)
-    gradOut = np.zeros(outputVectors.shape)
+    gradIn = np.zeros_like(inputVectors)
+    gradOut = np.zeros_like(outputVectors)
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    for word in contextWords:
+        idx = tokens[word]
+        input_vector = inputVectors[idx]
+        dcost, dgradIn, dgradOut = word2vecCostAndGradient(input_vector, tokens[currentWord], outputVectors, dataset)
+        cost += dcost
+        gradIn[idx:idx + 1, :] += dgradIn
+        gradOut += dgradOut
     ### END YOUR CODE
-    
+
     return cost, gradIn, gradOut
 
 #############################################
