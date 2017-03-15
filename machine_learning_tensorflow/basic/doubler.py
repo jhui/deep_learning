@@ -3,7 +3,7 @@ import tensorflow as tf
 value = tf.Variable(1, name="double")
 twice = tf.constant(2)
 
-new_value = tf.mul(value, twice)
+new_value = tf.multiply(value, twice)
 doubler = tf.assign(value, new_value)
 
 init_op = tf.initialize_all_variables()
