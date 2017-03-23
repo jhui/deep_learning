@@ -30,6 +30,7 @@ plt.xlabel('x axis')
 plt.ylabel('y axis')
 plt.title('Sine and Cosine')
 plt.legend(['Sine', 'Cosine'])
+plt.axhline(y=0, color=0.8)     # horizontal axis
 plt.show()
 
 # Plot 5
@@ -47,6 +48,7 @@ plt.title('Cosine')
 
 plt.show()
 
+# plt.ylim(bottom=0)   # set y bottom limit to 0
 
 ########## images
 from scipy.misc import imread, imsave, imresize

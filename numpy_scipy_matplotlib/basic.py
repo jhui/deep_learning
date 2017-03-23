@@ -296,6 +296,16 @@ A * B                            # element-wise product
 v = A.dot(B)                     # matrix product ndarray([[9 6] [11  7]])
 np.dot(A, B)                     # same
 
+a1 = np.array([[1, 2, 3]])       # (1, 3)
+a2 = np.array([4, 5, 6])         # (3, )
+a3 = np.array([4])               # (1, )
+a4 = np.array([[4], [5], [6]])   # (3, 1)
+
+
+v1 = a1 + a3                     # (1, 3)
+v2 = a1.dot(a2)                  # (1,)
+v3 = a1.dot(a4)                  # (1, 1)
+
 ########### Conditional
 x = np.random.randn(100)
 dout = np.random.randn(100)
