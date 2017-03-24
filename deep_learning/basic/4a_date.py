@@ -1,7 +1,8 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 iteration = 100000
-learning_rate = 1e-4
+learning_rate = 1e-5
 N = 100
 
 def true_y(education, income):
@@ -70,7 +71,7 @@ def compute_loss(X, W, b, y=None):
     z2, cache_z2 = affine_forward(h1, W[1], b[1])
 
     if y is None:
-        return z2
+        return z2, None, None
 
     dW = [None] * 2
     db = [None] * 2
@@ -88,31 +89,52 @@ income = np.random.randint(100, size=education.shape[0]) # (N,) Generate the cor
 
 # The number of dates according to the formula of an Oracle.
 # In practice, the value come with each sample data.
-Y = sample(education, income)    # (N,)
+true_model_Y = sample(education, income)    # (N,)
 
 W = [None] * 2
 b = [None] * 2
 
-W[0] = np.array([[0.7, 0.05, 0.0], [0.3, 0.01, 0.01]])  # (2, K)
-b[0] = np.array([0.8, 0.2, 1.0])
+W[0] = np.array([[0.7, 0.05, 0.0, 0.2], [0.3, 0.01, 0.01, 0.3]])  # (2, K)
+b[0] = np.array([0.8, 0.2, 1.0, 0.2])
 
-W[1] = np.array([[0.8], [0.5], [0.05]])                 # (K, 1)
+W[1] = np.array([[0.8], [0.5], [0.05], [0.05]])                 # (K, 1)
 b[1] = np.array([0.2])
 
 X = np.concatenate((education[:, np.newaxis], income[:, np.newaxis]), axis=1) # (N, 2) N samples with 2 features
 
 for i in range(iteration):
-    loss, dW, db = compute_loss(X, W, b, Y)
+    loss_model, dW, db = compute_loss(X, W, b, true_model_Y)
     for j, (cdW, cdb) in enumerate(zip(dW, db)):
         W[j] -= learning_rate * cdW
         b[j] -= learning_rate * cdb
     if i%1000==0:
-        print(f"iteration {i}: loss={loss:.4}")
+        print(f"iteration {i}: loss={loss_model:.4}")
 
 print(f"W = {W}")
 print(f"b = {b}")
 
+TN = 100
+test_education = np.full(TN, 22)
+test_income = np.random.randint(TN, size=test_education.shape[0])
+test_income = np.sort(test_income)
 
+true_model_Y = true_y(test_education, test_income)
+true_sample_Y = sample(test_education, test_income)
+X = np.concatenate((test_education[:, np.newaxis], test_income[:, np.newaxis]), axis=1)
 
+out, _, _ = compute_loss(X, W, b)
+loss_model, _ = mean_square_loss(out, true_model_Y)
+loss_sample, _ = mean_square_loss(out, true_sample_Y)
 
+print(f"testing: loss (compare with Oracle)={loss_model:.6}")
+print(f"testing: loss (compare with sample)={loss_sample:.2}")
+
+plt.colors()
+plt.scatter(test_income, true_model_Y, alpha=0.4)
+plt.scatter(test_income, true_sample_Y, alpha=0.4)
+
+plt.plot(test_income, out, color="r")
+plt.legend(['prediction', 'true label', 'sample label'])
+
+plt.show()
 
