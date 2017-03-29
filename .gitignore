@@ -37,3 +37,5 @@ machine_learning_tensorflow/tensorflow_examples/cnn/MNIST-data/t10k-labels-idx1-
 machine_learning_tensorflow/tensorflow_examples/cnn/MNIST-data/train-images-idx3-ubyte.gz
 
 machine_learning_tensorflow/tensorflow_examples/cnn/MNIST-data/train-labels-idx1-ubyte.gz
+
+*.h5

@@ -135,6 +135,24 @@ class CaptioningRNN(object):
     # defined above to store loss and gradients; grads[k] should give the      #
     # gradients for self.params[k].                                            #
     ############################################################################
+    # vocab_size = 1004
+    # T          = 16
+    #
+    # features    : (N, input_dim)
+    # W_proj      : (input_dim, hidden_dim)
+    # h0          : (N, hidden_dim)
+    #
+    # x           : (N, T, wordvec_dim)
+    # captions_in : (N, T) of word index
+    # W-embed     : (vacab_size, wordvec_dim)
+    #
+    # h           : (N, 16, hidden_dim)
+    # Wx          : (wordvec_dim, hidden_dim)
+    # Wh          : (hidden_dim, hidden_dim)
+    #
+    # scores      : (N, 16, vocab_size)
+    # W_vocab     : (hidden_dim, vocab_size)
+
     h0 = features.dot(W_proj) + b_proj
     x, cache_embed = word_embedding_forward(captions_in, W_embed)
 
@@ -217,6 +235,23 @@ class CaptioningRNN(object):
     # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
     # a loop.                                                                 #
     ###########################################################################
+    # max_length: 30
+    # prev_word : (N, 1)
+    #
+    # next_h    : (N, hidden_dim)
+    # features  : (N, input_dim)
+    # W_proj    : (input_dim, hidden_dim)
+    #
+    # embed     : (N, 1, wordvec_dim)
+    # W-embed   : (vacab_size, wordvec_dim)
+    #
+    # next_c    : (N, hidden_dim*4) for LSTM
+    #
+    # scores    : (N, vocab_size)
+    # W_vocab     : (hidden_dim, vocab_size)
+    #
+    # captions  : (N, max_length)
+
     prev_word = self._start * np.ones((N, 1), dtype=np.int32)
     next_h, affine_cache = affine_forward(features, W_proj, b_proj)
     H, _ = Wh.shape
