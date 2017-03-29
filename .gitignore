@@ -39,3 +39,7 @@ machine_learning_tensorflow/tensorflow_examples/cnn/MNIST-data/train-images-idx3
 machine_learning_tensorflow/tensorflow_examples/cnn/MNIST-data/train-labels-idx1-ubyte.gz
 
 *.h5
+
+stanford_cs231n/assignment3/cs231n/datasets/coco_captioning
+
+stanford_cs231n/assignment3/cs231n/datasets/tiny-imagenet-100-A
