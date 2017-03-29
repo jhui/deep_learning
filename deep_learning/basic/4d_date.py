@@ -3,16 +3,22 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
 from mpl_toolkits.mplot3d import Axes3D
+from numpy import linalg as LA
+from numpy import linalg as LA
 
-iteration = 100000
+iteration = 100_000
 learning_rate = 1e-4
 N = 100
+LAYER = 4
+K = 5
+LAST = LAYER - 1
+relu_flag = False
 
 def true_y(education, income):
     dates = 0.8 * education + 0.2 * income + 2
     return dates
 
-def sample(education, income, verbose=True):
+def sample(education, income, verbose=False):
     dates = true_y(education, income)
     noise =  dates * 0.15 * np.random.randn(education.shape[0]) # Add some noise2c_date.py
     if verbose:
@@ -78,54 +84,37 @@ def mean_square_loss(h, y):
     dout = 2 * (nh-y) / N                  # Compute the partial derivative of J relative to out
     return loss, dout
 
+def compute_loss(X, W, b, y=None, use_relu=True):
+    cache_z = [None] * LAYER
+    cache_act = [None] * (LAST)
 
-def compute_loss(X, W, b, y=None, use_relu=False):
-    z1, cache_z1 = affine_forward(X, W[0], b[0])
-    if use_relu:
-        h1, cache_relu1 = relu_forward(z1)
-    else:
-        h1, cache_s1 = sigmoid_forward(z1)
+    h = X
 
-    z2, cache_z2 = affine_forward(h1, W[1], b[1])
-    if use_relu:
-        h2, cache_relu2 = relu_forward(z2)
-    else:
-        h2, cache_s2 = sigmoid_forward(z2)
+    for i in range(LAST):
+        h, cache_z[i] = affine_forward(h, W[i], b[i])
+        if use_relu:
+            h, cache_act[i] = relu_forward(h)
+        else:
+            h, cache_act[i] = sigmoid_forward(h)
 
-    z3, cache_z3 = affine_forward(h2, W[2], b[2])
-    if use_relu:
-        h3, cache_relu3 = relu_forward(z3)
-    else:
-        h3, cache_s3 = sigmoid_forward(z3)
-
-    z4, cache_z4 = affine_forward(h3, W[3], b[3])
+    h, cache_z[LAST] = affine_forward(h, W[LAST], b[LAST])
 
     if y is None:
-        return z4, None, None
+        return h, None, None
 
-    dW = [None] * 4
-    db = [None] * 4
-    loss, dout = mean_square_loss(z4, y)
+    dW = [None] * LAYER
+    db = [None] * LAYER
+    loss, dout = mean_square_loss(h, y)
 
-    dz4, dW[3], db[3] = affine_backward(dout, cache_z4)
+    dz, dW[LAST], db[LAST] = affine_backward(dout, cache_z[LAST])
 
-    if use_relu:
-        dh3 = relu_backward(dz4, cache_relu3)
-    else:
-        dh3 = sigmoid_backward(dz4, cache_s3)
-    dz3, dW[2], db[2] = affine_backward(dh3, cache_z3)
+    for i in reversed(range(LAST)):
+        if use_relu:
+            dh = relu_backward(dz, cache_act[i])
+        else:
+            dh = sigmoid_backward(dz, cache_act[i])
 
-    if use_relu:
-        dh2 = relu_backward(dz3, cache_relu2)
-    else:
-        dh2 = sigmoid_backward(dz3, cache_s2)
-    dz2, dW[1], db[1] = affine_backward(dh2, cache_z2)
-
-    if use_relu:
-        dh1 = relu_backward(dz2, cache_relu1)
-    else:
-        dh1 = sigmoid_backward(dz2, cache_s1)
-    _, dW[0], db[0] = affine_backward(dh1, cache_z1)
+        dz, dW[i], db[i] = affine_backward(dh, cache_z[i])
 
     return loss, dW, db
 
@@ -137,33 +126,36 @@ income = np.random.randint(100, size=education.shape[0]) # (N,) Generate the cor
 # In practice, the value come with each sample data.
 Y = sample(education, income)    # (N,)
 
-W = [None] * 4
-b = [None] * 4
+W = [None] * LAYER
+b = [None] * LAYER
 
-W[0] = np.array([[0.7, 0.05, 0.0, 0.2, 0.2], [0.3, 0.01, 0.01, 0.3, 0.2]])  # (2, K)
-b[0] = np.array([0.8, 0.2, 1.0, 0.2, 0.1])
+loc = 0
+scale = 0.5 if relu_flag else 0.5
 
-W[1] = np.array([[0.7, 0.05, 0.0, 0.2, 0.1], [0.3, 0.01, 0.01, 0.3, 0.1], [0.3, 0.01, 0.01, 0.3, 0.1], [0.07, 0.04, 0.01, 0.1, 0.1], [0.1, 0.1, 0.01, 0.02, 0.03]])  # (K, K)
-b[1] = np.array([0.8, 0.2, 1.0, 0.2, 0.1])
+W[0] = np.random.normal(loc=loc, scale=scale, size=(2, K))     # (2, K)
+b[0] = np.random.normal(loc=loc, scale=scale, size=(K))
 
-W[2] = np.array([[0.7, 0.05, 0.0, 0.2, 0.1], [0.3, 0.01, 0.01, 0.3, 0.1], [0.3, 0.01, 0.01, 0.3, 0.1], [0.07, 0.04, 0.01, 0.1, 0.1], [0.1, 0.1, 0.01, 0.02, 0.03]])  # (K, K)
-b[2] = np.array([0.8, 0.2, 1.0, 0.2, 0.1])
+for i in range(1, LAST):
+    W[i] = np.random.normal(loc=loc, scale=scale, size=(K, K))  # (K, K)
+    b[i] = np.random.normal(loc=loc, scale=scale, size=(K))
 
-W[3] = np.array([[0.8], [0.5], [0.05], [0.05], [0.1]])                 # (K, 1)
-b[3] = np.array([0.2])
+W[LAST] = np.random.normal(loc=loc, scale=scale, size=(K, 1))                 # (K, 1)
+b[LAST] = np.array([0.0])
 
 X = np.concatenate((education[:, np.newaxis], income[:, np.newaxis]), axis=1) # (N, 2) N samples with 2 features
 
 for i in range(iteration):
-    loss, dW, db = compute_loss(X, W, b, Y)
+    loss, dW, db = compute_loss(X, W, b, Y, use_relu=relu_flag)
     for j, (cdW, cdb) in enumerate(zip(dW, db)):
         W[j] -= learning_rate * cdW
         b[j] -= learning_rate * cdb
-    if i%20000==0:
+    if i%10000==0:
         print(f"iteration {i}: loss={loss:.4}")
-
+        for i, l_dW in enumerate(dW):
+            print(f"layer {i}: gradient = {LA.norm(l_dW)}")
 print(f"W = {W}")
 print(f"b = {b}")
+
 
 TN = 100
 test_education = np.full(TN, 22)
@@ -174,7 +166,7 @@ true_model_Y = true_y(test_education, test_income)
 true_sample_Y = sample(test_education, test_income, verbose=False)
 X = np.concatenate((test_education[:, np.newaxis], test_income[:, np.newaxis]), axis=1)
 
-out, _, _ = compute_loss(X, W, b)
+out, _, _ = compute_loss(X, W, b, use_relu=relu_flag)
 loss_model, _ = mean_square_loss(out, true_model_Y)
 loss_sample, _ = mean_square_loss(out, true_sample_Y)
 
@@ -197,7 +189,7 @@ len_edu = len(plot_education)
 len_income = len(plot_income)
 
 data = np.array([[x * 0.25 , y] for x in plot_education for y in plot_income])
-out, _, _ = compute_loss(data, W, b)
+out, _, _ = compute_loss(data, W, b, use_relu=relu_flag)
 Z = out.reshape(len_edu, len_income)
 
 fig = plt.figure()

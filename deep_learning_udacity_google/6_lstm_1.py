@@ -207,9 +207,9 @@ with graph.as_default():
     om = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
     ob = tf.Variable(tf.zeros([1, num_nodes]))
     # Concatenate matrix
-    nx = tf.concat(1, [ix, fx, cx, ox])
-    nm = tf.concat(1, [im, fm, cm, om])
-    nb = tf.concat(1, [ib, fb, cb, ob])
+    nx = tf.concat([ix, fx, cx, ox], 1)
+    nm = tf.concat([im, fm, cm, om], 1)
+    nb = tf.concat([ib, fb, cb, ob], 1)
     # Variables saving state across unrollings.
     saved_output = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False)
     saved_state = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False)
@@ -220,7 +220,7 @@ with graph.as_default():
     # Definition of the cell computation.
     def lstm_cell(i, o, state):
         mat = tf.matmul(i, nx) + tf.matmul(o, nm) + nb
-        mat_input, mat_forget, update, mat_output = tf.split(1, 4, mat)
+        mat_input, mat_forget, update, mat_output = tf.split(mat, 4, 1)
         input_gate = tf.sigmoid(mat_input)
         forget_gate = tf.sigmoid(mat_forget)
         output_gate = tf.sigmoid(mat_output)
@@ -247,10 +247,10 @@ with graph.as_default():
     with tf.control_dependencies([saved_output.assign(output),
                                   saved_state.assign(state)]):
         # Classifier.
-        logits = tf.nn.xw_plus_b(tf.concat(0, outputs), w, b)
+        logits = tf.nn.xw_plus_b(tf.concat(outputs, 0), w, b)
         loss = tf.reduce_mean(
             tf.nn.softmax_cross_entropy_with_logits(
-                logits, tf.concat(0, train_labels)))
+                logits=logits, labels=tf.concat(train_labels, 0)))
 
     # Optimizer.
     global_step = tf.Variable(0)

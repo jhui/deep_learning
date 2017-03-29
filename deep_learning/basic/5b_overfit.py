@@ -26,7 +26,7 @@ def model(a, D):
     test_y = tf.matmul(test_data_holder, W)
 
 #    lmbda = 1
-    lmbda = 1
+    lmbda = 0
 
     # Gradient descent
     loss = tf.reduce_mean(tf.square(tf.subtract(y, y_data))) + lmbda_holder*tf.nn.l2_loss(W)
@@ -42,7 +42,7 @@ def model(a, D):
         for step in range(100000):
             sess.run(train, {lmbda_holder:lmbda})
             if step % 1000 == 0:
-                print(step, sess.run([loss], {test_data_holder:test_data, lmbda_holder:lmbda}))
+                print(step, sess.run([loss, W], {test_data_holder:test_data, lmbda_holder:lmbda}))
 
         loss, params, out = sess.run([loss, W, test_y], {test_data_holder:test_data, lmbda_holder:lmbda})
         print(params)

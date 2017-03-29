@@ -84,6 +84,19 @@ ax.w_zaxis.set_major_locator(LinearLocator(6))
 
 plt.show()
 
+# Plot 7
+x = np.arange(0, 10 * np.pi, 1)
+y = np.sin(x)
+plt.scatter(x, y)
+plt.plot(x, y)
+plt.annotate(f"({x} {y})",
+             xy=(x, y),
+             xytext=(5, 2),
+             textcoords='offset points',
+             ha='right',
+             va='bottom')
+plt.show()
+
 ########## images
 from scipy.misc import imread, imsave, imresize
 

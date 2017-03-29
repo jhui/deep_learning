@@ -7,6 +7,7 @@ import string
 from urllib.request import urlretrieve
 import sys
 
+
 # Set working directory to tmp to story all data & pickle files
 def set_working_dir():
     tmp_dir = 'tmp'
@@ -15,11 +16,13 @@ def set_working_dir():
     os.chdir(tmp_dir)
     print("Change working directory to", os.getcwd())
 
+
 set_working_dir()
 
 url = 'http://mattmahoney.net/dc/'
 
 last_percent_reported = None
+
 
 def download_progress_hook(count, blockSize, totalSize):
     """A hook to report the progress of a download. This is mostly intended for users with
@@ -38,18 +41,20 @@ def download_progress_hook(count, blockSize, totalSize):
 
         last_percent_reported = percent
 
+
 def maybe_download(filename, expected_bytes):
-  """Download a file if not present, and make sure it's the right size."""
-  if not os.path.exists(filename):
-    filename, _ = urlretrieve(url + filename, filename, reporthook=download_progress_hook)
-  statinfo = os.stat(filename)
-  if statinfo.st_size == expected_bytes:
-    print('Found and verified %s' % filename)
-  else:
-    print(statinfo.st_size)
-    raise Exception(
-      'Failed to verify ' + filename + '. Can you get to it with a browser?')
-  return filename
+    """Download a file if not present, and make sure it's the right size."""
+    if not os.path.exists(filename):
+        filename, _ = urlretrieve(url + filename, filename, reporthook=download_progress_hook)
+    statinfo = os.stat(filename)
+    if statinfo.st_size == expected_bytes:
+        print('Found and verified %s' % filename)
+    else:
+        print(statinfo.st_size)
+        raise Exception(
+            'Failed to verify ' + filename + '. Can you get to it with a browser?')
+    return filename
+
 
 filename = maybe_download('text8.zip', 31344016)
 
@@ -151,39 +156,52 @@ print(batches2string(train_batches.next()))
 print(batches2string(valid_batches.next()))
 print(batches2string(valid_batches.next()))
 
-
 print(train_batches.next()[1].shape)
 print(len(train_text) // batch_size)
 print(len(string.ascii_lowercase))
 print(np.zeros(shape=(2, 4), dtype=np.float))
 
+
 def logprob(predictions, labels):
-  """Log-probability of the true labels in a predicted batch."""
-  predictions[predictions < 1e-10] = 1e-10
-  return np.sum(np.multiply(labels, -np.log(predictions))) / labels.shape[0]
+    """Log-probability of the true labels in a predicted batch."""
+    predictions[predictions < 1e-10] = 1e-10
+    return np.sum(np.multiply(labels, -np.log(predictions))) / labels.shape[0]
+
 
 def sample_distribution(distribution):
-  """Sample one element from a distribution assumed to be an array of normalized
-  probabilities.
-  """
-  r = random.uniform(0, 1)
-  s = 0
-  for i in range(len(distribution)):
-    s += distribution[i]
-    if s >= r:
-      return i
-  return len(distribution) - 1
+    """Randomly select one element based on the probability distribution.
+    Output:
+      the index of the element selected.
+    """
+    r = random.uniform(0, 1)
+    s = 0
+    for i in range(len(distribution)):
+        s += distribution[i]
+        if s >= r:
+            return i
+    return len(distribution) - 1
+
 
 def sample(prediction):
-  """Turn a (column) prediction into 1-hot encoded samples."""
-  p = np.zeros(shape=[1, vocabulary_size], dtype=np.float)
-  p[0, sample_distribution(prediction[0])] = 1.0
-  return p
+    """Turn a (1, vocabulary) distribution to a one-hot vector.
+    Use sample_distribution to pick one element. Set the p[0, selected] = 1 otherwise 0.
+    Output p: a one-hot vector which the selected element = 1
+    """
+    p = np.zeros(shape=[1, vocabulary_size], dtype=np.float)
+    p[0, sample_distribution(prediction[0])] = 1.0
+    return p
+
 
 def random_distribution():
-  """Generate a random column of probabilities."""
-  b = np.random.uniform(0.0, 1.0, size=[1, vocabulary_size])
-  return b/np.sum(b, 1)[:,None]
+    """Generate a random distribution for (a..z), which later used by sample
+    to pick one character to form a one-hot vector.
+    Output:
+        dist = ndarray(1, vocabulary_size) which dist[0, 1] represent the possibility to pick 'a'
+    """
+    b = np.random.uniform(0.0, 1.0, size=[1, vocabulary_size])
+    dist = b / np.sum(b, 1)[:, None]
+    return dist
+
 
 num_nodes = 64
 
@@ -216,9 +234,7 @@ with graph.as_default():
 
     # Definition of the cell computation.
     def lstm_cell(i, o, state):
-        """Create a LSTM cell. See e.g.: http://arxiv.org/pdf/1402.1128v1.pdf
-        Note that in this formulation, we omit the various connections between the
-        previous state and the gates."""
+        """Create a LSTM cell."""
         input_gate = tf.sigmoid(tf.matmul(i, ix) + tf.matmul(o, im) + ib)
         forget_gate = tf.sigmoid(tf.matmul(i, fx) + tf.matmul(o, fm) + fb)
         update = tf.matmul(i, cx) + tf.matmul(o, cm) + cb
@@ -247,10 +263,11 @@ with graph.as_default():
     with tf.control_dependencies([saved_output.assign(output),
                                   saved_state.assign(state)]):
         # Classifier.
-        logits = tf.nn.xw_plus_b(tf.concat(0, outputs), w, b)
+        # logits : Tensor (num_nodes * num_unrollings , vocabulary_size) (640, 27)
+        logits = tf.nn.xw_plus_b(tf.concat(outputs, 0), w, b)
         loss = tf.reduce_mean(
             tf.nn.softmax_cross_entropy_with_logits(
-                logits, tf.concat(0, train_labels)))
+                logits=logits, labels=tf.concat(train_labels, 0)))
 
     # Optimizer.
     global_step = tf.Variable(0)
@@ -263,72 +280,81 @@ with graph.as_default():
         zip(gradients, v), global_step=global_step)
 
     # Predictions.
+    # train_prediction : Tensor (num_nodes * num_unrollings , vocabulary_size) (640, 27)
     train_prediction = tf.nn.softmax(logits)
 
-    # Sampling and validation eval: batch 1, no unrolling.
+    # Sampling and validation eval: batch size 1 with no unrolling.
     sample_input = tf.placeholder(tf.float32, shape=[1, vocabulary_size])
     saved_sample_output = tf.Variable(tf.zeros([1, num_nodes]))
     saved_sample_state = tf.Variable(tf.zeros([1, num_nodes]))
     reset_sample_state = tf.group(
         saved_sample_output.assign(tf.zeros([1, num_nodes])),
         saved_sample_state.assign(tf.zeros([1, num_nodes])))
+
     sample_output, sample_state = lstm_cell(
         sample_input, saved_sample_output, saved_sample_state)
     with tf.control_dependencies([saved_sample_output.assign(sample_output),
                                   saved_sample_state.assign(sample_state)]):
         sample_prediction = tf.nn.softmax(tf.nn.xw_plus_b(sample_output, w, b))
 
-
-
 num_steps = 7001
+num_steps = 1
 summary_frequency = 100
 
 with tf.Session(graph=graph) as session:
-  tf.global_variables_initializer().run()
-  print('Initialized')
-  mean_loss = 0
-  for step in range(num_steps):
-    batches = train_batches.next()
-    feed_dict = dict()
-    for i in range(num_unrollings + 1):
-      feed_dict[train_data[i]] = batches[i]
-    _, l, predictions, lr = session.run(
-      [optimizer, loss, train_prediction, learning_rate], feed_dict=feed_dict)
-    mean_loss += l
-    if step % summary_frequency == 0:
-      if step > 0:
-        mean_loss = mean_loss / summary_frequency
-      # The mean loss is an estimate of the loss over the last few batches.
-      print(
-        'Average loss at step %d: %f learning rate: %f' % (step, mean_loss, lr))
-      mean_loss = 0
-      labels = np.concatenate(list(batches)[1:])
-      print('Minibatch perplexity: %.2f' % float(
-        np.exp(logprob(predictions, labels))))
-      if step % (summary_frequency * 10) == 0:
-        # Generate some samples.
-        print('=' * 80)
-        for _ in range(5):
-          feed = sample(random_distribution())
-          sentence = characters(feed)[0]
-          reset_sample_state.run()
-          for _ in range(79):
-            prediction = sample_prediction.eval({sample_input: feed})
-            feed = sample(prediction)
-            sentence += characters(feed)[0]
-          print(sentence)
-        print('=' * 80)
-      # Measure validation set perplexity.
-      reset_sample_state.run()
-      valid_logprob = 0
-      for _ in range(valid_size):
-        b = valid_batches.next()
-        predictions = sample_prediction.eval({sample_input: b[0]})
-        valid_logprob = valid_logprob + logprob(predictions, b[1])
-      print('Validation set perplexity: %.2f' % float(np.exp(
-        valid_logprob / valid_size)))
+    tf.global_variables_initializer().run()
 
+    mean_loss = 0
+    for step in range(num_steps):
+        # batches: list of ndarray. len = time step (i.e. num_unrollings + 1),
+        #          ndarray's shape = (batch_size, vocabulary_size).
+        # batches[i] : training data at time step i.
+        # ndarray holds batch_size * one_hot_vector (with length vocabulary_size).
+        batches = train_batches.next()
 
+        # Feed data separated by each time step.
+        feed_dict = dict()
+        for i in range(num_unrollings + 1):
+            feed_dict[train_data[i]] = batches[i]
 
+        _, l, predictions, lr = session.run(
+            [optimizer, loss, train_prediction, learning_rate], feed_dict=feed_dict)
+        mean_loss += l
 
+        if step % summary_frequency == 0:
+            if step > 0:
+                mean_loss = mean_loss / summary_frequency
+            # The mean loss is an estimate of the loss over the last few batches.
+            print('Average loss at step %d: %f learning rate: %f' % (step, mean_loss, lr))
 
+            mean_loss = 0
+            labels = np.concatenate(list(batches)[1:])
+            print('Minibatch perplexity: %.2f' % float(
+                np.exp(logprob(predictions, labels))))
+
+            if step % (summary_frequency * 10) == 0:
+                # Generate some samples and show its prediction
+                print('=' * 80)
+                for _ in range(5):
+                    # feed: (1, vocabulary_size) generate 1 hot_vector represend a character.
+                    feed = sample(random_distribution())
+                    sentence = characters(feed)[0]    # Convert the one hot vector to a character.
+                    reset_sample_state.run()
+                    # Make the next 79 characters prediction.
+                    for _ in range(79):
+                        prediction = sample_prediction.eval({sample_input: feed})
+                        feed = sample(prediction)
+                        sentence += characters(feed)[0]
+                    print(sentence)
+                print('=' * 80)
+
+            # Measure validation set perplexity.
+            reset_sample_state.run()
+            valid_logprob = 0
+            for _ in range(valid_size):
+                b = valid_batches.next()
+                predictions = sample_prediction.eval({sample_input: b[0]})
+                valid_logprob = valid_logprob + logprob(predictions, b[1])
+
+            print('Validation set perplexity: %.2f' % float(np.exp(
+                valid_logprob / valid_size)))
