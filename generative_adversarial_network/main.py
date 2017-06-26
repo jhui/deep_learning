@@ -100,7 +100,7 @@ with tf.Session() as sess:
                 counter += 1
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, "  % (epoch, idx, batch_idx, time.time() - start_time,))
 
-                if counter % 200 == 0:
+                if counter % 50 == 0:
                     sdata = sess.run([G],feed_dict={ zin: display_z })
                     print(np.shape(sdata))
                     ims("results/imagenet/"+str(counter)+".jpg", merge(sdata[0],[8,8]))
@@ -109,7 +109,7 @@ with tf.Session() as sess:
                     errG = g_loss.eval({zin: batch_z})
                     print(errD_real + errD_fake)
                     print(errG)
-                if counter % 1000 == 0:
+                if counter % 200 == 0:
                     saver.save(sess, os.getcwd()+"/training/train", global_step=counter)
     else:
         saver.restore(sess, tf.train.latest_checkpoint(os.getcwd()+"/training/"))

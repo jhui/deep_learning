@@ -47,3 +47,24 @@ stanford_cs231n/assignment3/cs231n/datasets/tiny-imagenet-100-A
 generative_adversarial_network/results/imagenet/
 
 generative_adversarial_network/__pycache__/
+
+variational_autoencoder/__pycache__/
+
+variational_autoencoder/MNIST_data
+
+variational_autoencoder/training/
+variational_autoencoder/results/1.jpg
+
+variational_autoencoder/results/2.jpg
+
+variational_autoencoder/results/3.jpg
+
+variational_autoencoder/results/4.jpg
+
+variational_autoencoder/results/5.jpg
+
+variational_autoencoder/results/6.jpg
+
+variational_autoencoder/results/7.jpg
+
+variational_autoencoder/results/8.jpg
