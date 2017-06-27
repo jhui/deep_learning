@@ -42,10 +42,11 @@ class Color():
         self.real_AB = tf.concat([combined_preimage, self.real_images], 3)
         self.fake_AB = tf.concat([combined_preimage, self.generated_images], 3)
 
-        with tf.variable_scope("discriminator") as scope:
-            self.disc_true, disc_true_logits = self.discriminator(self.real_AB)
-            scope.reuse_variables()
-            self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB)
+
+        self.disc_true, disc_true_logits = self.discriminator(self.real_AB)
+        tf.get_variable_scope().reuse_variables()
+        self.disc_fake, disc_fake_logits = self.discriminator(self.fake_AB)
+        tf.get_variable_scope()._reuse = False
 
         self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_true_logits, labels=tf.ones_like(disc_true_logits)))
         self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_fake_logits, labels=tf.zeros_like(disc_fake_logits)))
@@ -182,7 +183,7 @@ class Color():
 
         datalen = len(data)
 
-        for i in range(min(100,datalen / self.batch_size)):
+        for i in range(min(100,datalen // self.batch_size)):
             batch_files = data[i*self.batch_size:(i+1)*self.batch_size]
             batch = np.array([cv2.resize(imread(batch_file), (512,512)) for batch_file in batch_files])
             batch_normalized = batch/255.0
@@ -193,7 +194,7 @@ class Color():
             batch_colors = np.array([self.imageblur(ba,True) for ba in batch]) / 255.0
 
             recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge, self.color_images: batch_colors})
-            ims("results/sample_"+str(i)+".jpg",merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
+            ims("results/sample_"+str(i)+".jpg", merge_color(recreation, [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims("results/sample_"+str(i)+"_origin.jpg",merge_color(batch_normalized, [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims("results/sample_"+str(i)+"_line.jpg",merge_color(batch_edge, [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims("results/sample_"+str(i)+"_color.jpg",merge_color(batch_colors, [self.batch_size_sqrt, self.batch_size_sqrt]))
