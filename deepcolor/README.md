@@ -1,3 +1,6 @@
+The code is original from https://github.com/kvfrans/deepcolor with the original article in
+http://kvfrans.com/coloring-and-shading-line-art-automatically-through-conditional-gans/
+
 # deepcolor
 
 Automatic coloring and shading of manga-style lineart, using Tensorflow + cGANs
