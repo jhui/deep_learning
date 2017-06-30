@@ -26,7 +26,7 @@ machine_learning_tensorflow/tensorflow_examples/mnist/MNIST-data/t10k-images-idx
 
 machine_learning_tensorflow/tensorflow_examples/mnist/MNIST-data/t10k-labels-idx1-ubyte.gz
 
-machine_learning_tensorflow/tensorflow_examples/mnist/MNIST-data/train-images-idx3-ubyte.gz
+machine_learning_tensorflow/tensorflow_examples/mnist/MNIST-data
 
 machine_learning_tensorflow/tensorflow_examples/mnist/MNIST-data/train-labels-idx1-ubyte.gz
 
@@ -53,6 +53,7 @@ variational_autoencoder/__pycache__/
 variational_autoencoder/MNIST_data
 
 variational_autoencoder/training/
+
 variational_autoencoder/results/1.jpg
 
 variational_autoencoder/results/2.jpg
@@ -68,3 +69,13 @@ variational_autoencoder/results/6.jpg
 variational_autoencoder/results/7.jpg
 
 variational_autoencoder/results/8.jpg
+
+draw-color/good-results
+
+draw-color/results-noattn
+
+draw-color/results
+
+*.pyc
+
+draw-color/MNIST_data
