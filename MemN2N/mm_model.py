@@ -56,7 +56,7 @@ class MemN2N(object):
 
         self.A = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std)) # Embedding A for sentences
         self.C = tf.Variable(tf.random_normal([self.nwords, self.edim], stddev=self.init_std)) # Embedding C for sentences
-        self.H = tf.Variable(tf.random_normal([self.edim, self.edim], stddev=self.init_std))
+        self.H = tf.Variable(tf.random_normal([self.edim, self.edim], stddev=self.init_std))   # Multiple it with u before adding to o
 
         # Sec 4.1: Temporal Encoding to capture the time order of the sentences.
         self.T_A = tf.Variable(tf.random_normal([self.mem_size, self.edim], stddev=self.init_std))
