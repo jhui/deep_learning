@@ -79,3 +79,5 @@ draw-color/results
 *.pyc
 
 draw-color/MNIST_data
+
+neural-style/data
