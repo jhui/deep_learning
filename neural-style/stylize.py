@@ -1,4 +1,5 @@
-# Copyright (c) 2015-2017 Anish Athalye. Released under GPLv3.
+# Orignal work: Copyright (c) 2015-2017 Anish Athalye. Released under GPLv3.
+# Modified work: Jonathan Hui
 
 import vgg
 
@@ -6,16 +7,11 @@ import tensorflow as tf
 import numpy as np
 
 from sys import stderr
-
 from PIL import Image
+from functools import reduce
 
 CONTENT_LAYERS = ('relu4_2', 'relu5_2')
 STYLE_LAYERS = ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
-
-try:
-    reduce
-except NameError:
-    from functools import reduce
 
 
 def stylize(network, initial, initial_noiseblend, content, styles, preserve_colors, iterations,
@@ -25,60 +21,71 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
     """
     Stylize images.
 
-    This function yields tuples (iteration, image); `iteration` is None
-    if this is the final image (the last iteration).  Other tuples are yielded
-    every `checkpoint_iterations` iterations.
+    This function yields tuples (iteration, image);
+    `iteration` is None if this is the final image (the last iteration).
+    Otherwise tuples are yielded every `checkpoint_iterations` iterations.
 
     :rtype: iterator[tuple[int|None,image]]
     """
-    shape = (1,) + content.shape
-    style_shapes = [(1,) + style.shape for style in styles]
+
+    # The shape information in the comment is based on the content image 1-content.jpg with shape (533, 400, 3)
+    # and 1-style.jpg (316, 400, 3)
+    # This should be changed with different images.
+
+    shape = (1,) + content.shape                                # (1, 533, 400, 3)
+    style_shapes = [(1,) + style.shape for style in styles]     # (1, 316, 400, 3)
     content_features = {}
     style_features = [{} for _ in styles]
 
-    vgg_weights, vgg_mean_pixel = vgg.load_net(network)
-
+    vgg_weights, vgg_mean_pixel = vgg.load_net(network)         # Load the VGG-19 model.
     layer_weight = 1.0
     style_layers_weights = {}
     for style_layer in STYLE_LAYERS:
-        style_layers_weights[style_layer] = layer_weight
-        layer_weight *= style_layer_weight_exp
+        style_layers_weights[style_layer] = layer_weight        # {'relu1_1': 1.0, 'relu2_1': 1.0, 'relu3_1': 1.0, 'relu4_1': 1.0, 'relu5_1': 1.0}
+        layer_weight *= style_layer_weight_exp                  # 1.0
+
+    # VGG19 layers:
+    # 'conv1_1', 'relu1_1', 'conv1_2', 'relu1_2', 'pool1',
+    # 'conv2_1', 'relu2_1', 'conv2_2', 'relu2_2', 'pool2',
+    # 'conv3_1', 'relu3_1', 'conv3_2', 'relu3_2', 'conv3_3', 'relu3_3', 'conv3_4', 'relu3_4', 'pool3',
+    # 'conv4_1', 'relu4_1', 'conv4_2', 'relu4_2', 'conv4_3', 'relu4_3', 'conv4_4', 'relu4_4', 'pool4',
+    # 'conv5_1', 'relu5_1', 'conv5_2', 'relu5_2', 'conv5_3', 'relu5_3', 'conv5_4', 'relu5_4'
 
     # normalize style layer weights
     layer_weights_sum = 0
+    for style_layer in STYLE_LAYERS:                            # ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
+        layer_weights_sum += style_layers_weights[style_layer]  # 5.0
     for style_layer in STYLE_LAYERS:
-        layer_weights_sum += style_layers_weights[style_layer]
-    for style_layer in STYLE_LAYERS:
-        style_layers_weights[style_layer] /= layer_weights_sum
+        style_layers_weights[style_layer] /= layer_weights_sum  # {'relu1_1': 0.2, 'relu2_1': 0.2, 'relu3_1': 0.2, 'relu4_1': 0.2, 'relu5_1': 0.2}
 
     # compute content features in feedforward mode
     g = tf.Graph()
     with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
         image = tf.placeholder('float', shape=shape)
-        net = vgg.net_preloaded(vgg_weights, image, pooling)
-        content_pre = np.array([vgg.preprocess(content, vgg_mean_pixel)])
-        for layer in CONTENT_LAYERS:
-            content_features[layer] = net[layer].eval(feed_dict={image: content_pre})
+        net = vgg.net_preloaded(vgg_weights, image, pooling)              # {'conv1_1': Tensor..., relu1_1: Tensor...}
+        content_pre = np.array([vgg.preprocess(content, vgg_mean_pixel)]) # (1, 533, 400, 3) subtract with the mean pixel
+        for layer in CONTENT_LAYERS:                                                  # (relu4_2, relu5_2)
+            content_features[layer] = net[layer].eval(feed_dict={image: content_pre}) # Find the feature values for (relu4_2, relu5_2)
 
-    # compute style features in feedforward mode
+    # compute style features in feed forward mode
     for i in range(len(styles)):
         g = tf.Graph()
         with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
-            image = tf.placeholder('float', shape=style_shapes[i])
+            image = tf.placeholder('float', shape=style_shapes[i])            # (1, 316, 400, 3)
             net = vgg.net_preloaded(vgg_weights, image, pooling)
             style_pre = np.array([vgg.preprocess(styles[i], vgg_mean_pixel)])
-            for layer in STYLE_LAYERS:
-                features = net[layer].eval(feed_dict={image: style_pre})
-                features = np.reshape(features, (-1, features.shape[3]))
-                gram = np.matmul(features.T, features) / features.size
+            for layer in STYLE_LAYERS:                                        # # ('relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1')
+                features = net[layer].eval(feed_dict={image: style_pre})      # For relu1_1 layer (1, 316, 400, 64)
+                features = np.reshape(features, (-1, features.shape[3]))      # (126400, 64)
+                gram = np.matmul(features.T, features) / features.size        # (64, 64) Gram matrix - measure the dependency of features.
                 style_features[i][layer] = gram
 
-    initial_content_noise_coeff = 1.0 - initial_noiseblend
+    initial_content_noise_coeff = 1.0 - initial_noiseblend                    # 0
 
     # make stylized image using backpropogation
     with tf.Graph().as_default():
         if initial is None:
-            noise = np.random.normal(size=shape, scale=np.std(content) * 0.1)
+            noise = np.random.normal(size=shape, scale=np.std(content) * 0.1) # Generate a random image with SD the same as the content image.
             initial = tf.random_normal(shape) * 0.256
         else:
             initial = np.array([vgg.preprocess(initial, vgg_mean_pixel)])
@@ -95,7 +102,8 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
 
         content_loss = 0
         content_losses = []
-        for content_layer in CONTENT_LAYERS:
+        for content_layer in CONTENT_LAYERS:       # {'relu5_2'}
+            # Use MSE as content losses
             content_losses.append(content_layers_weights[content_layer] * content_weight * (2 * tf.nn.l2_loss(
                     net[content_layer] - content_features[content_layer]) /
                     content_features[content_layer].size))
@@ -106,16 +114,18 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
         for i in range(len(styles)):
             style_losses = []
             for style_layer in STYLE_LAYERS:
-                layer = net[style_layer]
+                layer = net[style_layer]            # For relu1_1: (1, 533, 400, 64)
                 _, height, width, number = map(lambda i: i.value, layer.get_shape())
                 size = height * width * number
-                feats = tf.reshape(layer, (-1, number))
-                gram = tf.matmul(tf.transpose(feats), feats) / size
-                style_gram = style_features[i][style_layer]
+                feats = tf.reshape(layer, (-1, number))                # (213200, 64)
+                gram = tf.matmul(tf.transpose(feats), feats) / size    # Gram matrix for the features in relu1_1 for the result image.
+                style_gram = style_features[i][style_layer]            # Gram matrix for the style
+                # Style loss is the MSE for the difference of the 2 Gram matrix
                 style_losses.append(style_layers_weights[style_layer] * 2 * tf.nn.l2_loss(gram - style_gram) / style_gram.size)
             style_loss += style_weight * style_blend_weights[i] * reduce(tf.add, style_losses)
 
-        # total variation denoising
+        # Total variation denoising: Add cost to penalize neighboring pixel is very different.
+        # This help to reduce noise.
         tv_y_size = _tensor_size(image[:,1:,:,:])
         tv_x_size = _tensor_size(image[:,:,1:,:])
         tv_loss = tv_weight * 2 * (

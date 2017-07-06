@@ -1,4 +1,5 @@
-# Copyright (c) 2015-2017 Anish Athalye. Released under GPLv3.
+# Orignal work: Copyright (c) 2015-2017 Anish Athalye. Released under GPLv3.
+# Modified work: Jonathan Hui
 
 import os
 
@@ -26,6 +27,7 @@ STYLE_SCALE = 1.0
 ITERATIONS = 1000
 VGG_PATH = 'data/imagenet-vgg-verydeep-19.mat'
 POOLING = 'max'
+
 CONTENT_FILE = 'examples/1-content.jpg'
 STYLE_FILE = 'examples/1-style.jpg'
 OUT_FILE = 'examples/1-out.jpg'
@@ -115,14 +117,18 @@ def main():
     if not os.path.isfile(options.network):
         parser.error("Network %s does not exist. (Did you forget to download it?)" % options.network)
 
+    # Loading the content and style image.
     content_image = imread(options.content)
     style_images = [imread(style) for style in options.styles]
 
+    # Resize the content image if it is requested in the command line.
     width = options.width
     if width is not None:
         new_shape = (int(math.floor(float(content_image.shape[0]) /
                 content_image.shape[1] * width)), width)
         content_image = scipy.misc.imresize(content_image, new_shape)
+
+    # Resize the style image if it is requested in the command line.
     target_shape = content_image.shape
     for i in range(len(style_images)):
         style_scale = STYLE_SCALE
@@ -131,28 +137,31 @@ def main():
         style_images[i] = scipy.misc.imresize(style_images[i], style_scale *
                 target_shape[1] / style_images[i].shape[1])
 
+    # Since we can have more than 1 style images, we assign different weight for each style.
     style_blend_weights = options.style_blend_weights
     if style_blend_weights is None:
-        # default is equal weights
-        style_blend_weights = [1.0/len(style_images) for _ in style_images]
+        style_blend_weights = [1.0/len(style_images) for _ in style_images] # Equal weight for each style.
     else:
         total_blend_weight = sum(style_blend_weights)
         style_blend_weights = [weight/total_blend_weight
                                for weight in style_blend_weights]
 
+    # Configure an initial image that we eventually apply the content and style to.
     initial = options.initial
     if initial is not None:
         initial = scipy.misc.imresize(imread(initial), content_image.shape[:2])
-        # Initial guess is specified, but not noiseblend - no noise should be blended
+        # If initial guess is specified but not noiseblend - set noiseblend to 0
         if options.initial_noiseblend is None:
             options.initial_noiseblend = 0.0
     else:
-        # Neither inital, nor noiseblend is provided, falling back to random generated initial guess
         if options.initial_noiseblend is None:
+            # If inital and noiseblend are NOT provided, use random noise
             options.initial_noiseblend = 1.0
-        if options.initial_noiseblend < 1.0:
+        elif options.initial_noiseblend < 1.0:
+            # else the content image
             initial = content_image
 
+    # Generate output image at checkpoint as foo*.jpg if requested in the command line.
     if options.checkpoint_output and "%s" not in options.checkpoint_output:
         parser.error("To save intermediate images, the checkpoint output "
                      "parameter must contain `%s` (e.g. `foo%s.jpg`)")
@@ -191,9 +200,9 @@ def main():
 
 
 def imread(path):
-    img = scipy.misc.imread(path).astype(np.float)
+    img = scipy.misc.imread(path).astype(np.float)   # (533, 400, 3) for examples/1-content.jpg
     if len(img.shape) == 2:
-        # grayscale
+        # Grayscale image
         img = np.dstack((img,img,img))
     elif img.shape[2] == 4:
         # PNG with alpha channel
