@@ -24,7 +24,7 @@ BETA2 = 0.999
 EPSILON = 1e-08
 STYLE_SCALE = 1.0
 ITERATIONS = 1000
-VGG_PATH = 'imagenet-vgg-verydeep-19.mat'
+VGG_PATH = 'data/imagenet-vgg-verydeep-19.mat'
 POOLING = 'max'
 CONTENT_FILE = 'examples/1-content.jpg'
 STYLE_FILE = 'examples/1-style.jpg'
@@ -34,14 +34,14 @@ def build_parser():
     parser = ArgumentParser()
     parser.add_argument('--content',
             dest='content', help='content image',
-            metavar='CONTENT', required=True)
+            metavar='CONTENT', default=CONTENT_FILE)
     parser.add_argument('--styles',
             dest='styles',
             nargs='+', help='one or more style images',
-            metavar='STYLE', required=True)
+            metavar='STYLE', default=[STYLE_FILE])
     parser.add_argument('--output',
             dest='output', help='output path',
-            metavar='OUTPUT', required=True)
+            metavar='OUTPUT', default=OUT_FILE)
     parser.add_argument('--iterations', type=int,
             dest='iterations', help='iterations (default %(default)s)',
             metavar='ITERATIONS', default=ITERATIONS)
