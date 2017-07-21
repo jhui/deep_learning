@@ -1,7 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as pl
 
-# 50 Test data
+# Noiseless training dataset
+Xtrain = np.array([-4, -3, -2, -1, 1]).reshape(5,1)
+Xtrain = np.array([-4, -3]).reshape(2,1)
+ytrain = np.sin(Xtrain)
+
+# 50 Test data linear distributed between -5 and 5.
 n = 50
 Xtest = np.linspace(-5, 5, n).reshape(-1,1)
 
@@ -26,16 +31,13 @@ pl.axis([-5, 5, -3, 3])
 pl.title('Three samples from the GP prior')
 pl.show()
 
-# Noiseless training data
-Xtrain = np.array([-4, -3, -2, -1, 1]).reshape(5,1)
-ytrain = np.sin(Xtrain)
-
 # Apply the kernel function to our training points
 K = kernel(Xtrain, Xtrain, param)                        # Shape (5, 5)
+K_s = kernel(Xtrain, Xtest, param)                       # Shape (5, 50)
+
 L = np.linalg.cholesky(K + 0.00005*np.eye(len(Xtrain)))  # Shape (5, 5)
 
 # Compute the mean at our test points.
-K_s = kernel(Xtrain, Xtest, param)                       # Shape (5, 50)
 Lk = np.linalg.solve(L, K_s)                             # Shape (5, 50)
 mu = np.dot(Lk.T, np.linalg.solve(L, ytrain)).reshape((n,)) # Shape (50, )
 
@@ -45,7 +47,7 @@ stdv = np.sqrt(s2)                                       # Shape (50, )
 
 # Draw samples from the posterior at our test points.
 L = np.linalg.cholesky(K_ss + 1e-6*np.eye(n) - np.dot(Lk.T, Lk))    # Shape (50, 50)
-f_post = mu.reshape(-1,1) + np.dot(L, np.random.normal(size=(n,3))) # Shape (50, 3)
+f_post = mu.reshape(-1,1) + np.dot(L, np.random.normal(size=(n,5))) # Shape (50, 3)
 
 pl.plot(Xtrain, ytrain, 'bs', ms=8)
 pl.plot(Xtest, f_post)
