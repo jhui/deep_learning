@@ -3,7 +3,6 @@ import matplotlib.pyplot as pl
 
 # Noiseless training dataset
 Xtrain = np.array([-4, -3, -2, -1, 1]).reshape(5,1)
-Xtrain = np.array([-4, -3]).reshape(2,1)
 ytrain = np.sin(Xtrain)
 
 # 50 Test data linear distributed between -5 and 5.
@@ -47,7 +46,7 @@ stdv = np.sqrt(s2)                                       # Shape (50, )
 
 # Draw samples from the posterior at our test points.
 L = np.linalg.cholesky(K_ss + 1e-6*np.eye(n) - np.dot(Lk.T, Lk))    # Shape (50, 50)
-f_post = mu.reshape(-1,1) + np.dot(L, np.random.normal(size=(n,5))) # Shape (50, 3)
+f_post = mu.reshape(-1,1) + np.dot(L, np.random.normal(size=(n,30))) # Shape (50, 3)
 
 pl.plot(Xtrain, ytrain, 'bs', ms=8)
 pl.plot(Xtest, f_post)
