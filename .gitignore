@@ -81,3 +81,5 @@ draw-color/results
 draw-color/MNIST_data
 
 neural-style/data
+
+gan/checkpoint_base/tr/model-712000.data-00000-of-00001
