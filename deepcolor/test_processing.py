@@ -19,8 +19,8 @@ for imname in data:
     num_segs = 8
     seg_len = 256/num_segs
 
-    for x in xrange(num_segs):
-        for y in xrange(num_segs):
+    for x in range(num_segs):
+        for y in range(num_segs):
             seg[x*seg_len:(x+1)*seg_len, y*seg_len:(y+1)*seg_len, 0] = np.average(cimg[x*seg_len:(x+1)*seg_len, y*seg_len:(y+1)*seg_len, 0])
             seg[x*seg_len:(x+1)*seg_len, y*seg_len:(y+1)*seg_len, 1] = np.average(cimg[x*seg_len:(x+1)*seg_len, y*seg_len:(y+1)*seg_len, 1])
             seg[x*seg_len:(x+1)*seg_len, y*seg_len:(y+1)*seg_len, 2] = np.average(cimg[x*seg_len:(x+1)*seg_len, y*seg_len:(y+1)*seg_len, 2])

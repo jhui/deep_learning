@@ -1,27 +1,28 @@
-import urllib2
-import urllib
-import json
+import urllib.request
 import numpy as np
 import cv2
 import untangle
+import os
 
 maxsize = 512
 
 # tags = ["asu_tora","puuakachan","mankun","hammer_%28sunset_beach%29",""]
-
 # for tag in tags:
 
-count = 9700
+count = 22863
+directory = "/Users/venice/imgs"
 
-for i in xrange(97, 10000):
-    stringreturn = urllib2.urlopen("http://safebooru.org/index.php?page=dapi&s=post&q=index&tags=1girl%20solo&pid="+str(i+3000)).read()
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
+for i in range(231, 10000):
+    stringreturn = urllib.request.urlopen("http://safebooru.org/index.php?page=dapi&s=post&q=index&tags=1girl%20solo&pid="+str(i)).read().decode('utf-8')
     xmlreturn = untangle.parse(stringreturn)
     for post in xmlreturn.posts.post:
         imgurl = "http:" + post["sample_url"]
-        print imgurl
         if ("png" in imgurl) or ("jpg" in imgurl):
-            print i
-            resp = urllib.urlopen(imgurl)
+            print(f"{i}:{count} {imgurl}")
+            resp = urllib.request.urlopen(imgurl)
             image = np.asarray(bytearray(resp.read()), dtype="uint8")
             image = cv2.imdecode(image, cv2.IMREAD_COLOR)
             height, width = image.shape[:2]
@@ -33,8 +34,8 @@ for i in xrange(97, 10000):
                 scalefactor = (maxsize*1.0) / height
                 res = cv2.resize(image,(int(width * scalefactor), int(height*scalefactor)), interpolation = cv2.INTER_CUBIC)
                 center_x = int(round(width*scalefactor*0.5))
-                print center_x
-                cropped = res[0:maxsize,center_x - maxsize/2:center_x + maxsize/2]
+                print(center_x)
+                cropped = res[0:maxsize,center_x - maxsize//2:center_x + maxsize//2]
 
             # img_edge = cv2.adaptiveThreshold(cropped, 255,
             #                                  cv2.ADAPTIVE_THRESH_MEAN_C,
@@ -43,5 +44,5 @@ for i in xrange(97, 10000):
             #                                  C=2)
 
             count += 1
-            cv2.imwrite("imgs/"+str(count)+".jpg",cropped)
+            cv2.imwrite(f"{directory}/{str(count)}.jpg",cropped)
             # cv2.imwrite("imgs/"+str(post["id"])+"-edge.jpg",img_edge)
