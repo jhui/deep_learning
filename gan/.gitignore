@@ -6,6 +6,10 @@ checkpoint/
 checkpoint_old/
 old_results/
 uploaded/
+checkpoint/
+checkpoint_base/
+results_base/
+results/
 main.pyc
 utils.pyc
 server.pyc
