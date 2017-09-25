@@ -1,5 +1,7 @@
 import tensorflow as tf
 import tensorflow.contrib.layers as layers
+import os
+from pathlib import Path
 
 from tensorflow.examples.tutorials.mnist import input_data
 from infogan.misc_utils import parse_math
@@ -166,7 +168,11 @@ def run_network(inpt, string, is_training, use_batch_norm, debug=False, strip_ba
 
 
 def load_mnist_dataset():
-    mnist = input_data.read_data_sets("MNIST_data/", one_hot=False) # Loading the training, validation & testing dataset
+    # User home directory
+    home = str(Path.home())
+    DATA_ROOT_DIR = os.path.join(home, "dataset", "MNIST_data")
+
+    mnist = input_data.read_data_sets(DATA_ROOT_DIR, one_hot=False) # Loading the training, validation & testing dataset
     pixel_height = 28
     pixel_width = 28
     n_channels = 1

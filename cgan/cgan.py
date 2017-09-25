@@ -6,9 +6,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import os
+from pathlib import Path
 
+# User home directory
+home = str(Path.home())
+DATA_ROOT_DIR = os.path.join(home, "dataset", "MNIST_data")
 
-mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+mnist = input_data.read_data_sets(DATA_ROOT_DIR, one_hot=True)
 batch_size = 64
 X_dim = mnist.train.images.shape[1]   # x (image) dimension
 y_dim = mnist.train.labels.shape[1]   # y dimensions = label dimension = 10
@@ -125,11 +129,11 @@ for it in range(1000000):
         i += 1
         plt.close(fig)
 
-    X_mb, y_mb = mnist.train.next_batch(batch_size)
+    X_data, y_data = mnist.train.next_batch(batch_size)
 
     Z_sample = sample_Z(batch_size, Z_dim)
-    _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: Z_sample, y:y_mb})
-    _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: Z_sample, y:y_mb})
+    _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_data, Z: Z_sample, y:y_data})
+    _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: Z_sample, y:y_data})
 
     if it % 1000 == 0:
         print('Iter: {}'.format(it))
