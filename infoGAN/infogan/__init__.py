@@ -57,6 +57,10 @@ def discriminator_forward(img,
                           use_batch_norm=True,
                           debug=False):
     with tf.variable_scope(name, reuse=reuse):
+        # conv:4:2:64:lrelu, conv:4:2:128:lrelu,
+        # conv:4:2:256:lrelu,conv:4:1:256:lrelu,
+        # conv:4:1:256:lrelu,
+        # fc:1024:lrelu'
         out = run_network(img,
                           network_description,
                           is_training=is_training,
@@ -143,7 +147,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--dataset", type=str, default=None)
     parser.add_argument("--max_images", type=int, default=None)
-    parser.add_argument("--scale_dataset", type=int, nargs=2, default=[28,28])
+    parser.add_argument("--scale_dataset", type=int, nargs=2, default=[28, 28])
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--generator_lr", type=float, default=1e-3)
     parser.add_argument("--discriminator_lr", type=float, default=2e-4)
@@ -224,18 +228,18 @@ def train():
 
     discriminator_lr = tf.get_variable(
         "discriminator_lr", (),
-        initializer=tf.constant_initializer(args.discriminator_lr) # learning rate: 0.0002
+        initializer=tf.constant_initializer(args.discriminator_lr) # discriminator learning rate: 0.0002
     )
     generator_lr = tf.get_variable(
         "generator_lr", (),
         initializer=tf.constant_initializer(args.generator_lr)     # learning rate: 0.001
     )
 
-    n_images, image_height, image_width, n_channels = X.shape
+    n_images, image_height, image_width, n_channels = X.shape # 55,000, 28, 28, 1
 
     discriminator_lr_placeholder = tf.placeholder(tf.float32, (), name="discriminator_lr")
     generator_lr_placeholder = tf.placeholder(tf.float32, (), name="generator_lr")
-    assign_discriminator_lr_op = discriminator_lr.assign(discriminator_lr_placeholder)
+    assign_discriminator_lr_op = discriminator_lr.assign(discriminator_lr_placeholder) # Assign placeholder to variable
     assign_generator_lr_op = generator_lr.assign(generator_lr_placeholder)
 
     ## begin model
@@ -260,6 +264,16 @@ def train():
         name="is_training_generator"
     )
 
+    # Generator architecture
+    # Fully connected with num_outputs=1024 followed by relu
+    # Fully connected with num_outputs=16384 followed by relu
+    # Reshape to [8, 8, 256]
+    # Deconvolution with nkernels=4, stride=1, num_outputs=256 followed by relu
+    # Deconvolution with nkernels=4, stride=2, num_outputs=256 followed by relu
+    # Deconvolution with nkernels=4, stride=2, num_outputs=128 followed by relu
+    # Deconvolution with nkernels=4, stride=2, num_outputs=64 followed by relu
+    # Deconvolution with nkernels=4, stride=1, num_outputs=1 followed by sigmoid
+    # Generate (64, 64, 1)
     fake_images = generator_forward(
         zc_vectors,
         generator_desc,
@@ -271,6 +285,16 @@ def train():
     print("Generator produced images of shape %s" % (fake_images.get_shape()[1:]))
     print("")
 
+    # discriminator architecture
+    # Convolution with nkernels=4, stride=2, num_outputs=64 followed by lrelu
+    # Convolution with nkernels=4, stride=2, num_outputs=128 followed by lrelu
+    # Convolution with nkernels=4, stride=2, num_outputs=256 followed by lrelu
+    # Convolution with nkernels=4, stride=1, num_outputs=256 followed by lrelu
+    # Convolution with nkernels=4, stride=1, num_outputs=256 followed by lrelu
+    # Fully connected with num_outputs=1024 followed by lrelu
+    # Flatten
+    # Fully connected with num_outputs=1 followed by Sigmoid
+
     discriminator_fake = discriminator_forward(
         fake_images,
         discriminator_desc,
@@ -280,6 +304,8 @@ def train():
         debug=True
     )
     prob_fake = discriminator_fake["prob"]
+
+
     discriminator_true = discriminator_forward(
         true_images,
         discriminator_desc,
