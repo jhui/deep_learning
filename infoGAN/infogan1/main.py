@@ -19,11 +19,8 @@ flags.DEFINE_integer('batch_size', 128, 'batch size to use during training [128]
 flags.DEFINE_integer('nepoch', 100, 'number of epochs to use during training [100]')
 flags.DEFINE_float('lr', 0.001, 'learning rate of the optimizer to use during training [0.001]')
 flags.DEFINE_float('max_grad_norm', 40, 'clip L2-norm of gradients to this threshold [40]')
-flags.DEFINE_string('gan_type', 'VanillaInfoGAN',
-                    'input "VanillaInfoGAN" to use Vanilla InfoGAN; otherwise, input "InfoDCGAN" [VanillaInfoGAN]')
 flags.DEFINE_string('checkpoint_dir', './checkpoints', 'checkpoint directory [./checkpoints]')
 flags.DEFINE_string('image_dir', './images', 'directory to save generated images to [./images]')
-flags.DEFINE_bool('use_adam', True, 'if True, use Adam optimizer; otherwise, use SGD [True]')
 flags.DEFINE_bool('show_progress', False, 'print progress [False]')
 
 FLAGS = flags.FLAGS
@@ -33,17 +30,14 @@ def main(_):
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
 
+    if not os.path.exists(FLAGS.image_dir):
+        os.makedirs(FLAGS.image_dir)
+
     pp.pprint(flags.FLAGS.__flags)
 
     with tf.Session() as sess:
 
-        if FLAGS.gan_type == 'VanillaInfoGAN':
-            model = VanillaInfoGAN(FLAGS, sess)
-        elif FLAGS.gan_type == 'InfoDCGAN':
-            model = InfoDCGAN(FLAGS, sess)
-        else:
-            raise Exception("Unimplemented Type of InfoGAN")
-
+        model = InfoDCGAN(FLAGS, sess)
         model.build_model()
         model.run()
 
