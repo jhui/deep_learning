@@ -121,7 +121,8 @@ def stylize(network, initial, initial_noiseblend, content, styles, preserve_colo
                 gram = tf.matmul(tf.transpose(feats), feats) / size    # Gram matrix for the features in relu1_1 for the result image.
                 style_gram = style_features[i][style_layer]            # Gram matrix for the style
                 # Style loss is the MSE for the difference of the 2 Gram matrix
-                style_losses.append(style_layers_weights[style_layer] * 2 * tf.nn.l2_loss(gram - style_gram) / style_gram.size)
+                style_losses.append(style_layers_weights[style_layer]
+                                    * 2 * tf.nn.l2_loss(gram - style_gram) / style_gram.size)
             style_loss += style_weight * style_blend_weights[i] * reduce(tf.add, style_losses)
 
         # Total variation denoising: Add cost to penalize neighboring pixel is very different.

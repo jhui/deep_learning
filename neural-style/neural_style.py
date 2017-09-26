@@ -1,4 +1,4 @@
-# Orignal work: Copyright (c) 2015-2017 Anish Athalye. Released under GPLv3.
+# Original work: Copyright (c) 2015-2017 Anish Athalye. Released under GPLv3.
 # Modified work: Jonathan Hui
 
 import os
@@ -25,6 +25,7 @@ BETA2 = 0.999
 EPSILON = 1e-08
 STYLE_SCALE = 1.0
 ITERATIONS = 1000
+
 VGG_PATH = 'data/imagenet-vgg-verydeep-19.mat'
 POOLING = 'max'
 
