@@ -123,7 +123,28 @@ class Color():
         e4 = bn(conv2d(lrelu(e3), self.gf_dim * 8, name='g_e4_conv'))  # (N, 16, 16, 512)
         e5 = bn(conv2d(lrelu(e4), self.gf_dim * 8, name='g_e5_conv'))  # (N, 8, 8, 512)
 
-        self.d4, self.d4_w, self.d4_b = deconv2d(tf.nn.relu(e5), [self.batch_size, s16, s16, self.gf_dim * 8],
+
+
+
+        e6 = bn(conv2d(lrelu(e5), self.gf_dim * 16, name='g_e6_conv'))  # (N, 4, 4, 1024)
+        e7 = bn(conv2d(lrelu(e6), self.gf_dim * 16, name='g_e7_conv'))  # (N, 2, 2, 1024)
+
+        self.d2, self.d2_w, self.d2_b = deconv2d(tf.nn.relu(e7), [self.batch_size, s64, s64, self.gf_dim * 16],
+                                                 name='g_d2', with_w=True)  # (N, 4, 4, 1024)
+        d2 = bn(self.d2)
+        d2 = tf.concat([d2, e6], 3)  # (N, 4, 4, 2048)
+
+
+        self.d3, self.d3_w, self.d3_b = deconv2d(tf.nn.relu(d2), [self.batch_size, s32, s32, self.gf_dim * 8],
+                                                 name='g_d3', with_w=True)  # (N, 8, 8, 512)
+        d3 = bn(self.d3)
+        d3 = tf.concat([d3, e5], 3)  # (N, 8, 8, 1024)
+
+
+
+
+
+        self.d4, self.d4_w, self.d4_b = deconv2d(tf.nn.relu(d3), [self.batch_size, s16, s16, self.gf_dim * 8],
                                                  name='g_d4', with_w=True)  # (N, 16, 16, 512)
         d4 = bn(self.d4)
         d4 = tf.concat([d4, e4], 3)  # (N, 16, 16, 1024)
