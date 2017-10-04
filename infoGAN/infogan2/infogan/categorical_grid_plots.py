@@ -48,8 +48,8 @@ class CategoricalPlotter(object):
     def __init__(self,
                  journalist,
                  categorical_cardinality,
-                 num_continuous,
-                 style_size,
+                 c_continuous_size,
+                 z_noise_size,
                  generate,
                  row_size=10,
                  zoom=2.0,
@@ -57,8 +57,8 @@ class CategoricalPlotter(object):
         self._journalist = journalist
         self._gutter = gutter
         self.categorical_cardinality = categorical_cardinality
-        self.style_size = style_size
-        self.num_continuous = num_continuous
+        self.style_size = z_noise_size
+        self.num_continuous = c_continuous_size
         self._generate = generate
         self._zoom = zoom
 

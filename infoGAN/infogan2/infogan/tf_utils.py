@@ -56,9 +56,9 @@ def parse_conv_params(params):
 
     return nkernels, stride, num_outputs, nonlinearity
 
-def run_network(inpt, string, is_training, use_batch_norm, debug=False, strip_batchnorm_from_last_layer=False):
-    maybe_fc_batch_norm   = layers.batch_norm if use_batch_norm else None
-    maybe_conv_batch_norm = conv_batch_norm if use_batch_norm else None
+def run_network(inpt, string, is_training, debug=False, strip_batchnorm_from_last_layer=False):
+    maybe_fc_batch_norm   = layers.batch_norm
+    maybe_conv_batch_norm = conv_batch_norm
 
     if debug:
         print ("%s architecture" % (tf.get_variable_scope().name,))

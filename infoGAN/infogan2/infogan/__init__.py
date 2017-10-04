@@ -35,7 +35,6 @@ def generator_forward(z,
                       is_training,
                       reuse=None,
                       name="generator",
-                      use_batch_norm=True,
                       debug=False):
     with tf.variable_scope(name, reuse=reuse):
         # ['fc:1024', 'fc:8x8x256', 'reshape:8:8:256',
@@ -45,7 +44,6 @@ def generator_forward(z,
         return run_network(z,
                            network_description,
                            is_training=is_training,
-                           use_batch_norm=use_batch_norm,
                            debug=debug,
                            strip_batchnorm_from_last_layer=True)
 
@@ -54,7 +52,6 @@ def discriminator_forward(img,
                           is_training,
                           reuse=None,
                           name="discriminator",
-                          use_batch_norm=True,
                           debug=False):
     with tf.variable_scope(name, reuse=reuse):
         # conv:4:2:64:lrelu, conv:4:2:128:lrelu,
@@ -64,7 +61,6 @@ def discriminator_forward(img,
         out = run_network(img,
                           network_description,
                           is_training=is_training,
-                          use_batch_norm=use_batch_norm,
                           debug=debug)
         out = layers.flatten(out)
         prob = layers.fully_connected(
@@ -77,76 +73,67 @@ def discriminator_forward(img,
     return {"prob":prob, "hidden":out}
 
 
-def reconstruct_mutual_info(true_categoricals,
-                            true_continuous,
+def reconstruct_mutual_info(z_c_categoricals,
+                            z_c_continuous,
                             categorical_lambda,
                             continuous_lambda,
-                            fix_std,
-                            hidden,
+                            discriminator_hidden,
                             is_training,
                             reuse=None,
                             name="mutual_info"):
     with tf.variable_scope(name, reuse=reuse):
         out = layers.fully_connected(
-            hidden,
+            discriminator_hidden,
             num_outputs=128,
             activation_fn=leaky_rectify,
             normalizer_fn=layers.batch_norm,
             normalizer_params={"is_training":is_training}
         )
 
-        num_categorical = sum([true_categorical.get_shape()[1].value for true_categorical in true_categoricals])
-        num_continuous = true_continuous.get_shape()[1].value
+        num_categorical = sum([true_categorical.get_shape()[1].value for true_categorical in z_c_categoricals])
+        num_continuous = z_c_continuous.get_shape()[1].value
 
         out = layers.fully_connected(
             out,
-            num_outputs=num_categorical + (num_continuous if fix_std else (num_continuous * 2)),
+            num_outputs=num_categorical + num_continuous,
             activation_fn=tf.identity
         )
 
         # distribution logic
         offset = 0
-        ll_categorical = None
-        for true_categorical in true_categoricals:
-            cardinality = true_categorical.get_shape()[1].value
+        loss_q_categorical = None
+        for z_c_categorical in z_c_categoricals:
+            cardinality = z_c_categorical.get_shape()[1].value
             prob_categorical = tf.nn.softmax(out[:, offset:offset + cardinality])
-            ll_categorical_new = tf.reduce_sum(tf.log(prob_categorical + TINY) * true_categorical,
+            loss_q_categorical_new = - tf.reduce_sum(tf.log(prob_categorical + TINY) * z_c_categorical,
                 reduction_indices=1
             )
-            if ll_categorical is None:
-                ll_categorical = ll_categorical_new
+            if loss_q_categorical is None:
+                loss_q_categorical = loss_q_categorical_new
             else:
-                ll_categorical = ll_categorical + ll_categorical_new
+                loss_q_categorical = loss_q_categorical + loss_q_categorical_new
             offset += cardinality
 
-        mean_contig = out[:, num_categorical:num_categorical + num_continuous]
+        q_mean = out[:, num_categorical:num_categorical + num_continuous]
+        q_sd = tf.ones_like(q_mean)
 
-        if fix_std:
-            std_contig = tf.ones_like(mean_contig)
-        else:
-            std_contig = tf.sqrt(tf.exp(out[:, num_categorical + num_continuous:num_categorical + num_continuous * 2]))
-
-        epsilon = (true_continuous - mean_contig) / (std_contig + TINY)
-        ll_continuous = tf.reduce_sum(
-            - 0.5 * np.log(2 * np.pi) - tf.log(std_contig + TINY) - 0.5 * tf.square(epsilon),
+        epsilon = (z_c_continuous - q_mean) / (q_sd + TINY)
+        loss_q_continuous = - tf.reduce_sum(
+            - 0.5 * np.log(2 * np.pi) - tf.log(q_sd + TINY) - 0.5 * tf.square(epsilon),
             reduction_indices=1,
         )
-        if ll_categorical is None:
-            ll_categorical = tf.constant(0.0, dtype=tf.float32)
-        mutual_info_lb = continuous_lambda * ll_continuous + categorical_lambda * ll_categorical
-    return {
-        "mutual_info": tf.reduce_mean(mutual_info_lb),
-        "ll_categorical": tf.reduce_mean(ll_categorical),
-        "ll_continuous": tf.reduce_mean(ll_continuous),
-        "std_contig": tf.reduce_mean(std_contig)
-    }
+        loss_mutual_info = continuous_lambda * loss_q_continuous + categorical_lambda * loss_q_categorical
+    return (
+        tf.reduce_mean(loss_mutual_info),
+        tf.reduce_mean(loss_q_categorical),
+        tf.reduce_mean(loss_q_continuous)
+    )
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--dataset", type=str, default=None)
-    parser.add_argument("--max_images", type=int, default=None)
     parser.add_argument("--scale_dataset", type=int, nargs=2, default=[28, 28])
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--generator_lr", type=float, default=1e-3)
@@ -169,9 +156,6 @@ def parse_args():
     parser.add_argument("--style_size", type=int, default=62)
     parser.add_argument("--plot_every", type=int, default=200,
                         help="How often should plots be made (note: slow + costly).")
-    add_boolean_cli_arg(parser, "infogan", default=True, help="Train GAN or InfoGAN")
-    add_boolean_cli_arg(parser, "use_batch_norm", default=True, help="Use batch normalization.")
-    add_boolean_cli_arg(parser, "fix_std", default=True, help="Fix continuous var standard deviation to 1.")
     add_boolean_cli_arg(parser, "force_grayscale", default=False, help="Convert images to single grayscale output channel.")
     return parser.parse_args()
 
@@ -183,21 +167,16 @@ def train():
 
     batch_size = args.batch_size         # 64
     n_epochs = args.epochs               # 100
-    use_batch_norm = args.use_batch_norm # True
-    fix_std = args.fix_std               # True
     plot_every = args.plot_every         # 200
-    use_infogan = args.infogan           # True
-    style_size = args.style_size         # 62 Gaussian distributed c
+    z_noise_size = args.style_size         # 62 Gaussian distributed c
+    c_continuous_size = args.num_continuous # 2 Uniform distributed c
     categorical_cardinality = args.categorical_cardinality # [20, 20, 20] 3 categories with value 0 - 19. Represented as 1-hot vector
-    num_continuous = args.num_continuous # 2 Uniform distributed c
     generator_desc = args.generator
     discriminator_desc = args.discriminator
 
     if args.dataset is None:
         assert args.scale_dataset == [28, 28]
         X = load_mnist_dataset()
-        if args.max_images is not None:
-            X = X[:args.max_images]
         dataset_name = "mnist"
     else:
         scaled_image_width, scaled_image_height = args.scale_dataset
@@ -208,23 +187,16 @@ def train():
             desired_width=scaled_image_width,
             desired_height=scaled_image_height,
             value_range=(0.0, 1.0),
-            max_images=args.max_images,
             force_grayscale=args.force_grayscale
         )
         dataset_name = basename(args.dataset.rstrip("/"))
 
-
-
-    if use_infogan:
-        z_size = style_size + sum(categorical_cardinality) + num_continuous # 124
-        sample_noise = create_infogan_noise_sample(
-            categorical_cardinality,
-            num_continuous,
-            style_size
-        )
-    else:
-        z_size = style_size
-        sample_noise = create_gan_noise_sample(style_size)
+    z_size = z_noise_size + sum(categorical_cardinality) + c_continuous_size  # 124
+    sample_noise = create_infogan_noise_sample(
+        categorical_cardinality,
+        c_continuous_size,
+        z_noise_size
+    )
 
     discriminator_lr = tf.get_variable(
         "discriminator_lr", (),
@@ -300,7 +272,6 @@ def train():
         discriminator_desc,
         is_training=is_training_discriminator,
         name="discriminator",
-        use_batch_norm=use_batch_norm,
         debug=True
     )
     prob_fake = discriminator_fake["prob"]
@@ -312,21 +283,16 @@ def train():
         is_training=is_training_discriminator,
         reuse=True,
         name="discriminator",
-        use_batch_norm=use_batch_norm
     )
     prob_true = discriminator_true["prob"]
 
     # discriminator should maximize:
-    ll_believing_fake_images_are_fake = tf.log(1.0 - prob_fake + TINY)
-    ll_true_images = tf.log(prob_true + TINY)
-    discriminator_obj = (
-        tf.reduce_mean(ll_believing_fake_images_are_fake) +
-        tf.reduce_mean(ll_true_images)
-    )
+    loss_discriminator_fake_images = - tf.log(1.0 - prob_fake + TINY)
+    loss_discriminator_true_images = - tf.log(prob_true + TINY)
+    loss_discriminator = tf.reduce_mean(loss_discriminator_fake_images) + tf.reduce_mean(loss_discriminator_true_images)
 
     # generator should maximize:
-    ll_believing_fake_images_are_real = tf.reduce_mean(tf.log(prob_fake + TINY))
-    generator_obj = ll_believing_fake_images_are_real
+    loss_geneartor = - tf.reduce_mean(tf.log(prob_fake + TINY))
 
     discriminator_solver = tf.train.AdamOptimizer(
         learning_rate=discriminator_lr,
@@ -340,116 +306,81 @@ def train():
     discriminator_variables = scope_variables("discriminator")
     generator_variables = scope_variables("generator")
 
-    train_discriminator = discriminator_solver.minimize(-discriminator_obj, var_list=discriminator_variables)
-    train_generator = generator_solver.minimize(-generator_obj, var_list=generator_variables)
-    discriminator_obj_summary = tf.summary.scalar("discriminator_objective", discriminator_obj)
-    generator_obj_summary = tf.summary.scalar("generator_objective", generator_obj)
+    train_discriminator = discriminator_solver.minimize(loss_discriminator, var_list=discriminator_variables)
+    train_generator = generator_solver.minimize(loss_geneartor, var_list=generator_variables)
+    discriminator_loss_summary = tf.summary.scalar("loss_discriminator", loss_discriminator)
+    generator_loss_summary = tf.summary.scalar("loss_geneartor", loss_geneartor)
 
-    if use_infogan:
-        categorical_c_vectors = []
-        offset = 0
-        for cardinality in categorical_cardinality:
-            categorical_c_vectors.append(
-                zc_vectors[:, offset:offset+cardinality]
-            )
-            offset += cardinality
-
-        continuous_c_vector = zc_vectors[:, offset:offset + num_continuous]
-
-        q_output = reconstruct_mutual_info(
-            categorical_c_vectors,
-            continuous_c_vector,
-            categorical_lambda=args.categorical_lambda,
-            continuous_lambda=args.continuous_lambda,
-            fix_std=fix_std,
-            hidden=discriminator_fake["hidden"],
-            is_training=is_training_discriminator,
-            name="mutual_info"
+    c_categorical_vectors = []
+    offset = 0
+    for cardinality in categorical_cardinality:
+        c_categorical_vectors.append(
+            zc_vectors[:, offset:offset + cardinality]
         )
+        offset += cardinality
 
-        mutual_info_objective = q_output["mutual_info"]
-        mutual_info_variables = scope_variables("mutual_info")
-        neg_mutual_info_objective = -mutual_info_objective
-        train_mutual_info = generator_solver.minimize(
-            neg_mutual_info_objective,
-            var_list=generator_variables + discriminator_variables + mutual_info_variables
-        )
-        ll_categorical = q_output["ll_categorical"]
-        ll_continuous = q_output["ll_continuous"]
-        std_contig = q_output["std_contig"]
+    c_continuous_vector = zc_vectors[:, offset:offset + c_continuous_size]
 
-        mutual_info_obj_summary = tf.summary.scalar("mutual_info_objective", mutual_info_objective)
-        ll_categorical_obj_summary = tf.summary.scalar("ll_categorical_objective", ll_categorical)
-        ll_continuous_obj_summary = tf.summary.scalar("ll_continuous_objective", ll_continuous)
-        std_contig_summary = tf.summary.scalar("std_contig", std_contig)
-        generator_obj_summary = tf.summary.merge([
-            generator_obj_summary,
-            mutual_info_obj_summary,
-            ll_categorical_obj_summary,
-            ll_continuous_obj_summary,
-            std_contig_summary
-        ])
-    else:
-        neg_mutual_info_objective = NOOP
-        mutual_info_objective = NOOP
-        train_mutual_info = NOOP
-        ll_categorical = NOOP
-        ll_continuous = NOOP
-        std_contig = NOOP
-        entropy = NOOP
+    loss_mutual_info, loss_q_categorical, loss_q_continuous = reconstruct_mutual_info(
+        c_categorical_vectors,
+        c_continuous_vector,
+        categorical_lambda=args.categorical_lambda,
+        continuous_lambda=args.continuous_lambda,
+        discriminator_hidden=discriminator_fake["hidden"],
+        is_training=is_training_discriminator,
+        name="mutual_info"
+    )
+
+    mutual_info_variables = scope_variables("mutual_info")
+    train_mutual_info = generator_solver.minimize(
+        loss_mutual_info,
+        var_list=generator_variables + discriminator_variables + mutual_info_variables
+    )
+
+    mutual_info_obj_summary = tf.summary.scalar("loss_mutual_info", loss_mutual_info)
+    ll_categorical_obj_summary = tf.summary.scalar("ll_categorical_objective", loss_q_categorical)
+    ll_continuous_obj_summary = tf.summary.scalar("ll_continuous_objective", loss_q_continuous)
+    generator_loss_summary = tf.summary.merge([
+        generator_loss_summary,
+        mutual_info_obj_summary,
+        ll_categorical_obj_summary,
+        ll_continuous_obj_summary
+    ])
 
 
-    log_dir = next_unused_name(
-        join(
-            PROJECT_DIR,
-            "%s_log" % (dataset_name,),
-            "infogan" if use_infogan else "gan"
+    log_dir = next_unused_name(join(PROJECT_DIR, f"{dataset_name}_log","infogan"))
+    journalist = tf.summary.FileWriter(log_dir)
+    print(f"Saving tensorboard logs to {log_dir}")
+
+    plotter = CategoricalPlotter(
+        categorical_cardinality=categorical_cardinality,
+        c_continuous_size=c_continuous_size,
+        z_noise_size=z_noise_size,
+        journalist=journalist,
+        generate=lambda sess, x: sess.run(
+            fake_images,
+            {zc_vectors: x, is_training_discriminator: False, is_training_generator: False}
         )
     )
-    journalist = tf.summary.FileWriter(
-        log_dir,
-        flush_secs=10
-    )
-    print("Saving tensorboard logs to %r" % (log_dir,))
 
-    img_summaries = {}
-    if use_infogan:
-        plotter = CategoricalPlotter(
-            categorical_cardinality=categorical_cardinality,
-            num_continuous=num_continuous,
-            style_size=style_size,
-            journalist=journalist,
-            generate=lambda sess, x: sess.run(
-                fake_images,
-                {zc_vectors:x, is_training_discriminator:False, is_training_generator:False}
-            )
-        )
-    else:
-        image_placeholder = None
-        plotter = None
-        img_summaries["fake_images"] = tf.summary.image("fake images", fake_images, max_images=10)
-    image_summary_op = tf.summary.merge(list(img_summaries.values())) if len(img_summaries) else NOOP
-
-    idxes = np.arange(n_images, dtype=np.int32)
-    iters = 0
+    indexes = np.arange(n_images, dtype=np.int32)
+    iterations = 0
     with tf.Session() as sess:
-        # pleasure
         sess.run(tf.global_variables_initializer())
-        # content
         for epoch in range(n_epochs):
-            disc_epoch_obj = []
-            gen_epoch_obj = []
-            infogan_epoch_obj = []
+            discriminator_epoch_loss = []
+            generator_epoch_loss = []
+            infogan_epoch_loss = []
 
-            np.random.shuffle(idxes)
-            pbar = create_progress_bar("epoch %d >> " % (epoch,))
+            np.random.shuffle(indexes)
+            pbar = create_progress_bar(f"epoch {epoch} >> ")
 
-            for idx in pbar(range(0, n_images, batch_size)):
-                batch = X[idxes[idx:idx + batch_size]]
-                # train discriminator
+            for index in pbar(range(0, n_images, batch_size)):
+                batch = X[indexes[index:index + batch_size]]
                 noise = sample_noise(batch_size)
-                _, summary_result1, disc_obj, infogan_obj = sess.run(
-                    [train_discriminator, discriminator_obj_summary, discriminator_obj, neg_mutual_info_objective],
+                # Train discriminator
+                _, discriminator_summary, discriminator_loss, infogan_loss = sess.run(
+                    [train_discriminator, discriminator_loss_summary, loss_discriminator, loss_mutual_info],
                     feed_dict={
                         true_images:batch,
                         zc_vectors:noise,
@@ -458,15 +389,13 @@ def train():
                     }
                 )
 
-                disc_epoch_obj.append(disc_obj)
+                discriminator_epoch_loss.append(discriminator_loss)
+                infogan_epoch_loss.append(infogan_loss)
 
-                if use_infogan:
-                    infogan_epoch_obj.append(infogan_obj)
-
-                # train generator
+                # Train generator
                 noise = sample_noise(batch_size)
-                _, _, summary_result2, gen_obj, infogan_obj = sess.run(
-                    [train_generator, train_mutual_info, generator_obj_summary, generator_obj, neg_mutual_info_objective],
+                _, _, generator_summary, generator_loss, infogan_loss = sess.run(
+                    [train_generator, train_mutual_info, generator_loss_summary, loss_geneartor, loss_mutual_info],
                     feed_dict={
                         zc_vectors:noise,
                         is_training_discriminator:True,
@@ -474,37 +403,23 @@ def train():
                     }
                 )
 
-                journalist.add_summary(summary_result1, iters)
-                journalist.add_summary(summary_result2, iters)
+                journalist.add_summary(discriminator_summary, iterations)
+                journalist.add_summary(generator_summary, iterations)
                 journalist.flush()
-                gen_epoch_obj.append(gen_obj)
 
-                if use_infogan:
-                    infogan_epoch_obj.append(infogan_obj)
+                generator_epoch_loss.append(generator_loss)
+                infogan_epoch_loss.append(infogan_loss)
 
-                iters += 1
+                iterations += 1
 
-                if iters % plot_every == 0:
-                    if use_infogan:
-                        plotter.generate_images(sess, 10, iteration=iters)
-                    else:
-                        noise = sample_noise(batch_size)
-                        current_summary = sess.run(
-                            image_summary_op,
-                            {
-                                zc_vectors:noise,
-                                is_training_discriminator:False,
-                                is_training_generator:False
-                            }
-                        )
-                        journalist.add_summary(current_summary, iters)
+                if iterations % plot_every == 0:
+                    plotter.generate_images(sess, 10, iteration=iterations)
                     journalist.flush()
 
-            msg = "epoch %d >> discriminator LL %.2f (lr=%.6f), generator LL %.2f (lr=%.6f)" % (
+            msg = f"epoch %d >> discriminator LL %.2f (lr=%.6f), generator LL %.2f (lr=%.6f) , infogan loss %.2f" % (
                 epoch,
-                np.mean(disc_epoch_obj), sess.run(discriminator_lr),
-                np.mean(gen_epoch_obj), sess.run(generator_lr)
+                np.mean(discriminator_epoch_loss), sess.run(discriminator_lr),
+                np.mean(generator_epoch_loss), sess.run(generator_lr),
+                np.mean(infogan_epoch_loss)
             )
-            if use_infogan:
-                msg = msg + ", infogan loss %.2f" % (np.mean(infogan_epoch_obj),)
             print(msg)

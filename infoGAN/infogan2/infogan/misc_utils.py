@@ -78,13 +78,9 @@ def load_image_dataset(path,
                        desired_height=None,
                        desired_width=None,
                        value_range=None,
-                       max_images=None,
                        force_grayscale=False):
     image_paths = list(find_files_with_extension(path, [".png", ".jpg", ".jpeg"]))
     limit_msg = ''
-    if max_images is not None and len(image_paths) > max_images:
-        image_paths = random.sample(image_paths, max_images)
-        limit_msg = " (limited to %d images by command line argument)" % (max_images,)
 
     print("Found %d images in %s%s." % (len(image_paths), path, limit_msg))
 
