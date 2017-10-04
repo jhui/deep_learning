@@ -1,6 +1,13 @@
-s = "2017102"
-print(s[::-1] == s)
+import numpy as np
 
-print(s == ''.join(reversed(s)))
+def sample_category(batch_size, dim):
+    indices = np.random.randint(0, dim, size=batch_size)
 
-print(s==reversed(s))
+    as_one_hot = np.zeros((indices.shape[0], dim))
+    as_one_hot[np.arange(0, indices.shape[0]), indices] = 1.0
+
+    return as_one_hot
+
+
+v = sample_category(5, 10)
+print(v)

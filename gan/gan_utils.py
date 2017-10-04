@@ -23,9 +23,9 @@ def bnreset():
     batchnorm_count = 0
 
 
-def bn(x):
+def bn(x, prefix="bn"):
     global batchnorm_count
-    batch_object = batch_norm(name=("bn" + str(batchnorm_count)))
+    batch_object = batch_norm(name=(prefix + str(batchnorm_count)))
     batchnorm_count += 1
     return batch_object(x)
 

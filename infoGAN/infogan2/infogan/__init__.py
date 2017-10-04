@@ -118,8 +118,8 @@ def reconstruct_mutual_info(z_c_categoricals,
         q_sd = tf.ones_like(q_mean)
 
         epsilon = (z_c_continuous - q_mean) / (q_sd + TINY)
-        loss_q_continuous = - tf.reduce_sum(
-            - 0.5 * np.log(2 * np.pi) - tf.log(q_sd + TINY) - 0.5 * tf.square(epsilon),
+        loss_q_continuous = tf.reduce_sum(
+            0.5 * np.log(2 * np.pi) + tf.log(q_sd + TINY) + 0.5 * tf.square(epsilon),
             reduction_indices=1,
         )
         loss_mutual_info = continuous_lambda * loss_q_continuous + categorical_lambda * loss_q_categorical
