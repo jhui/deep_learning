@@ -417,7 +417,6 @@ def prepare_dir():
 
 if __name__ == '__main__':
     cmd = "train" if len(sys.argv) == 1 else sys.argv[1]
-
     print("Starting ...")
     prepare_dir()
     if cmd == "train":
