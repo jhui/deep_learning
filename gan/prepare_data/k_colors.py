@@ -5,33 +5,7 @@ from glob import glob
 from sys import platform
 from collections import Counter
 import operator
-
-
-if platform == "linux":
-    TOP_ROOT = os.path.join(os.sep, "home", "ubuntu", "gan")
-    DATA_ROOT_DIR = os.path.join(TOP_ROOT, "dataset")
-    APP_ROOT_DIR = os.path.join(TOP_ROOT, "app")
-elif platform == "darwin":
-    TOP_ROOT = os.path.join(os.sep, "Users", "venice")
-
-    DATA_ROOT_DIR = os.path.join(TOP_ROOT, "dataset", "anime")
-    APP_ROOT_DIR = os.path.join(".")
-else:
-    print("Platform not supported")
-    exit()
-
-DIR_o = "imgs"
-DIR_e = "imgs_e"
-DIR_r = "imgs_r"
-DIR_m = "imgs_m"
-
-DIR_o = "sample"
-DIR_e = "sample_e"
-DIR_r = "sample_r"
-DIR_m = "sample_m"
-
-IMG_DIR = os.path.join(DATA_ROOT_DIR, DIR_r)  # /Users/venice/dataset/anime/imgs_r
-META_DIR = os.path.join(DATA_ROOT_DIR, DIR_m)
+from gan_env import *
 
 data = glob(os.path.join(IMG_DIR, "*.jpg"))
 

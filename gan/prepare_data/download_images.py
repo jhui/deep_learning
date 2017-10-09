@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import untangle
 import os
+from gan_env import *
 
 maxsize = 512
 
@@ -10,7 +11,7 @@ maxsize = 512
 # for tag in tags:
 
 count = 50311
-directory = "/Users/venice/dataset/anime/imgs"
+directory = ORG_DIR
 
 if not os.path.exists(directory):
     os.makedirs(directory)
@@ -38,4 +39,5 @@ for i in range(517, 10000):
                 cropped = res[0:maxsize,center_x - maxsize//2:center_x + maxsize//2]
 
             count += 1
-            cv2.imwrite(f"{directory}/{str(count)}.jpg",cropped)
+            filename = os.path.join(directory, f"{str(count)}.jpg")
+            cv2.imwrite(filename,cropped)

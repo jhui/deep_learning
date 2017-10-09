@@ -5,48 +5,13 @@ import sys
 import math
 from glob import glob
 from random import randint
-from sys import platform
 
 import tensorflow as tf
 import numpy as np
 import cv2
 
 from gan_utils import *
-
-TINY = 1e-6
-
-if platform == "linux":
-    TOP_ROOT = os.path.join(os.sep, "home", "ubuntu", "gan")
-
-    DATA_ROOT_DIR = os.path.join(TOP_ROOT, "dataset")
-    APP_ROOT_DIR = os.path.join(TOP_ROOT, "app")
-elif platform == "darwin":
-    TOP_ROOT = os.path.join(os.sep, "Users", "venice")
-
-    DATA_ROOT_DIR = os.path.join(TOP_ROOT, "dataset", "anime")
-    APP_ROOT_DIR = os.path.join(".")
-else:
-    print("Platform not supported")
-    exit()
-
-# DATA_ROOT_DIR : This directory should exist with valid training dataset
-
-CHECKPOINT_DIR = os.path.join(APP_ROOT_DIR, "checkpoint", "tr")
-RESULT_DIR = os.path.join(APP_ROOT_DIR, "results")
-
-DIR_o = "imgs"
-DIR_e = "imgs_e"
-DIR_r = "imgs_r"
-
-SAMPLE_o = "sample"
-SAMPLE_e = "sample_e"
-SAMPLE_r = "sample_r"
-
-ORG_DIR = os.path.join(DATA_ROOT_DIR, DIR_o)  # /Users/venice/dataset/anime/imgs
-IMG_DIR = os.path.join(DATA_ROOT_DIR, DIR_r)  # /Users/venice/dataset/anime/imgs_r
-
-SAMPLE_ORG_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_o)
-SAMPLE_IMG_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_r)
+from gan_env import *
 
 
 class Color():
@@ -231,7 +196,7 @@ class Color():
         self.d8, self.d8_w, self.d8_b = deconv2d(tf.nn.relu(d7), [self.batch_size, s, s, self.output_colors],
                                                  name='g_d8', with_w=True)  # (N, 256, 256, 3)
 
-        return tf.nn.tanh(self.d8)
+        return tf.nn.sigmoid(self.d8)
 
     def imageblur(self, cimg, sampling=False):
         if sampling:
