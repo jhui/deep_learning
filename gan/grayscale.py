@@ -10,8 +10,8 @@ IMG_DIR = os.path.join(ROOT_DIR, "imgs")
 
 IMG_DIR2 = os.path.join(ROOT_DIR, "imgs_r")
 
-GIMG_DIR2 = os.path.join(ROOT_DIR, "imgs_g2")   # Gray image for original
-GIMG_DIR = os.path.join(ROOT_DIR, "imgs_g")   # Gray image for 256x256 image
+GIMG_DIR = os.path.join(ROOT_DIR, "imgs_g")     # Gray image original
+GIMG_DIR2 = os.path.join(ROOT_DIR, "imgs_gr")   # Gray image 256x256
 
 if __name__ == '__main__':
 

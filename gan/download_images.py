@@ -15,7 +15,7 @@ directory = "/Users/venice/dataset/anime/imgs"
 if not os.path.exists(directory):
     os.makedirs(directory)
 
-for i in range(506, 10000):
+for i in range(517, 10000):
     stringreturn = urllib.request.urlopen("http://safebooru.org/index.php?page=dapi&s=post&q=index&tags=1girl%20solo&pid="+str(i)).read().decode('utf-8')
     xmlreturn = untangle.parse(stringreturn)
     for post in xmlreturn.posts.post:

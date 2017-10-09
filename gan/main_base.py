@@ -36,8 +36,16 @@ DIR_o = "imgs"
 DIR_e = "imgs_e"
 DIR_r = "imgs_r"
 
+SAMPLE_o = "sample"
+SAMPLE_e = "sample_e"
+SAMPLE_r = "sample_r"
+
 ORG_DIR = os.path.join(DATA_ROOT_DIR, DIR_o)  # /Users/venice/dataset/anime/imgs
 IMG_DIR = os.path.join(DATA_ROOT_DIR, DIR_r)  # /Users/venice/dataset/anime/imgs_r
+
+SAMPLE_ORG_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_o)
+SAMPLE_IMG_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_r)
+
 
 
 class Color():
@@ -227,7 +235,7 @@ class Color():
     def sample(self):
         self.loadmodel(False)
 
-        data = glob(os.path.join(ORG_DIR, "*.jpg"))
+        data = glob(os.path.join(SAMPLE_ORG_DIR, "*.jpg"))
 
         datalen = len(data)
 

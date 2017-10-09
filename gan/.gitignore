@@ -1,7 +1,9 @@
 imgs/
 checkpoint/
+checkpoint_gan/
 checkpoint_base/
 results_base/
+results_gan/
 results/
 main.pyc
 utils.pyc

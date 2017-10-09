@@ -16,6 +16,10 @@ IMG_DIR = os.path.join(ROOT_DIR, "imgs")
 ROUT_DIR = os.path.join(ROOT_DIR, "imgs_r")  # Cropped image to 256x256x3
 LOUT_DIR = os.path.join(ROOT_DIR, "imgs_e")  # Lineart image
 
+IMG_DIR = os.path.join(ROOT_DIR, "imgs")
+ROUT_DIR = os.path.join(ROOT_DIR, "imgs_r")  # Cropped image to 256x256x3
+LOUT_DIR = os.path.join(ROOT_DIR, "imgs_e")  # Lineart image
+
 if __name__ == '__main__':
 
     if not os.path.exists(LOUT_DIR):

@@ -38,8 +38,15 @@ DIR_o = "imgs"
 DIR_e = "imgs_e"
 DIR_r = "imgs_r"
 
+SAMPLE_o = "sample"
+SAMPLE_e = "sample_e"
+SAMPLE_r = "sample_r"
+
 ORG_DIR = os.path.join(DATA_ROOT_DIR, DIR_o)  # /Users/venice/dataset/anime/imgs
 IMG_DIR = os.path.join(DATA_ROOT_DIR, DIR_r)  # /Users/venice/dataset/anime/imgs_r
+
+SAMPLE_ORG_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_o)
+SAMPLE_IMG_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_r)
 
 
 class Color():
@@ -325,7 +332,7 @@ class Color():
     def sample(self):
         self.loadmodel(False)
 
-        data = glob(os.path.join(IMG_DIR, "*.jpg"))
+        data = glob(os.path.join(SAMPLE_IMG_DIR, "*.jpg"))
 
         datalen = len(data)
 
@@ -417,7 +424,6 @@ def prepare_dir():
 
 if __name__ == '__main__':
     cmd = "train" if len(sys.argv) == 1 else sys.argv[1]
-
     print("Starting ...")
     prepare_dir()
     if cmd == "train":
