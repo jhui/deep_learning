@@ -3,29 +3,23 @@
 import os
 import sys
 import math
+import time
 from glob import glob
 from random import randint
-from sys import platform
 
 import tensorflow as tf
 import numpy as np
 import cv2
 
-from gan_utils import *
 from gan_env import *
+from gan_layers import *
+from gan_data import *
 
 class Color():
     def __init__(self, imgsize=256, batchsize=4):
         self.batch_size = batchsize
         self.batch_size_sqrt = int(math.sqrt(self.batch_size))
         self.image_size = self.output_size = imgsize
-
-        self.gf_dim = 64
-        self.df_dim = 64
-
-        self.input_colors = 1
-        self.input_colors2 = 3
-        self.output_colors = 3
 
         self.l1_scaling = 100
 
@@ -35,15 +29,15 @@ class Color():
 
         # (4, 256, 256, 1)
         self.line_images = tf.placeholder(tf.float32,
-                                          [self.batch_size, self.image_size, self.image_size, self.input_colors])
+                                          [self.batch_size, self.image_size, self.image_size, 1])
 
         # (4, 256, 256, 3) color hints
         self.color_images = tf.placeholder(tf.float32,
-                                           [self.batch_size, self.image_size, self.image_size, self.input_colors2])
+                                           [self.batch_size, self.image_size, self.image_size, 3])
 
         # (4, 256, 256, 3)
         self.real_images = tf.placeholder(tf.float32,
-                                          [self.batch_size, self.image_size, self.image_size, self.output_colors])
+                                          [self.batch_size, self.image_size, self.image_size, 3])
 
         combined_preimage = tf.concat([self.line_images, self.color_images], 3)  # (4, 256, 256, 4)
 
@@ -78,10 +72,10 @@ class Color():
     def discriminator(self, image):
         # image: (N, 256, 256, 7)
 
-        h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))  # (N, 128, 128, 64)
-        h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim * 2, name='d_h1_conv')))  # (N, 64, 64, 128)
-        h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim * 4, name='d_h2_conv')))  # (N, 32, 32, 256)
-        h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim * 8, stride_h=1, stride_w=1, name='d_h3_conv')))  # (N, 32, 32, 512)
+        h0 = lrelu(conv2d(image, 64, name='d_h0_conv'))  # (N, 128, 128, 64)
+        h1 = lrelu(self.d_bn1(conv2d(h0, 128, name='d_h1_conv')))  # (N, 64, 64, 128)
+        h2 = lrelu(self.d_bn2(conv2d(h1, 256, name='d_h2_conv')))  # (N, 32, 32, 256)
+        h3 = lrelu(self.d_bn3(conv2d(h2, 512, stride_h=1, stride_w=1, name='d_h3_conv')))  # (N, 32, 32, 512)
         h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')  # (N, 1)
         return tf.nn.sigmoid(h4), h4
 
@@ -90,33 +84,33 @@ class Color():
         s = self.output_size  # 256
         s2, s4, s8, s16, s32, s64, s128 = s // 2, s // 4, s // 8, s // 16, s // 32, s // 64, s // 128
 
-        e1 = conv2d(img_in, self.gf_dim, name='g_e1_conv')  # (N, 128, 128, 64)
-        e2 = self.bn_g(conv2d(lrelu(e1), self.gf_dim * 2, name='g_e2_conv'))  # (N, 64, 64, 128)
-        e3 = self.bn_g(conv2d(lrelu(e2), self.gf_dim * 4, name='g_e3_conv'))  # (N, 32, 32, 256)
-        e4 = self.bn_g(conv2d(lrelu(e3), self.gf_dim * 8, name='g_e4_conv'))  # (N, 16, 16, 512)
-        e5 = self.bn_g(conv2d(lrelu(e4), self.gf_dim * 8, name='g_e5_conv'))  # (N, 8, 8, 512)
+        e1 = conv2d(img_in, 64, name='g_e1_conv')  # (N, 128, 128, 64)
+        e2 = self.bn_g(conv2d(lrelu(e1), 128, name='g_e2_conv'))  # (N, 64, 64, 128)
+        e3 = self.bn_g(conv2d(lrelu(e2), 256, name='g_e3_conv'))  # (N, 32, 32, 256)
+        e4 = self.bn_g(conv2d(lrelu(e3), 512, name='g_e4_conv'))  # (N, 16, 16, 512)
+        e5 = self.bn_g(conv2d(lrelu(e4), 512, name='g_e5_conv'))  # (N, 8, 8, 512)
 
-        self.d4, self.d4_w, self.d4_b = deconv2d(tf.nn.relu(e5), [self.batch_size, s16, s16, self.gf_dim * 8],
+        self.d4, self.d4_w, self.d4_b = deconv2d(tf.nn.relu(e5), [self.batch_size, s16, s16, 512],
                                                  name='g_d4', with_w=True)  # (N, 16, 16, 512)
         d4 = self.bn_g(self.d4)
         d4 = tf.concat([d4, e4], 3)  # (N, 16, 16, 1024)
 
-        self.d5, self.d5_w, self.d5_b = deconv2d(tf.nn.relu(d4), [self.batch_size, s8, s8, self.gf_dim * 4],
+        self.d5, self.d5_w, self.d5_b = deconv2d(tf.nn.relu(d4), [self.batch_size, s8, s8, 256],
                                                  name='g_d5', with_w=True)  # (N, 32, 32, 256)
         d5 = self.bn_g(self.d5)
         d5 = tf.concat([d5, e3], 3)  # (N, 32, 32, 512)
 
-        self.d6, self.d6_w, self.d6_b = deconv2d(tf.nn.relu(d5), [self.batch_size, s4, s4, self.gf_dim * 2],
+        self.d6, self.d6_w, self.d6_b = deconv2d(tf.nn.relu(d5), [self.batch_size, s4, s4, 128],
                                                  name='g_d6', with_w=True)  # (N, 64, 64, 128)
         d6 = self.bn_g(self.d6)
         d6 = tf.concat([d6, e2], 3)  # (N, 64, 64, 256)
 
-        self.d7, self.d7_w, self.d7_b = deconv2d(tf.nn.relu(d6), [self.batch_size, s2, s2, self.gf_dim],
+        self.d7, self.d7_w, self.d7_b = deconv2d(tf.nn.relu(d6), [self.batch_size, s2, s2, 64],
                                                  name='g_d7', with_w=True)  # (N, 128, 128, 64)
         d7 = self.bn_g(self.d7)
         d7 = tf.concat([d7, e1], 3)  # (N, 128, 128, 128)
 
-        self.d8, self.d8_w, self.d8_b = deconv2d(tf.nn.relu(d7), [self.batch_size, s, s, self.output_colors],
+        self.d8, self.d8_w, self.d8_b = deconv2d(tf.nn.relu(d7), [self.batch_size, s, s, 3],
                                                  name='g_d8', with_w=True)  # (N, 256, 256, 3)
 
         return tf.nn.tanh(self.d8)
@@ -134,30 +128,17 @@ class Color():
     def train(self):
         self.loadmodel()
 
-        data = glob(os.path.join(IMG_DIR, "*.jpg"))
-
         base_count = 2
-        data[:self.batch_size] = [os.path.join(IMG_DIR, "51.jpg"), os.path.join(IMG_DIR, "1462.jpg"),
-                                  os.path.join(IMG_DIR, "13712.jpg"), os.path.join(IMG_DIR, "2868.jpg")]
-        data[self.batch_size:self.batch_size*2] = [os.path.join(IMG_DIR, "30018.jpg"), os.path.join(IMG_DIR, "8950.jpg"),
-                                                   os.path.join(IMG_DIR, "30324.jpg"), os.path.join(IMG_DIR, "13169.jpg")]
+        data = glob(os.path.join(IMG_DIR, "*.jpg"))
+        data = override_demo_image(data, self.batch_size)
 
-        e_data = [sample_file.replace(DIR_r, DIR_e) for sample_file in data[0:self.batch_size*base_count]]
-        if len(e_data) == 0:
-            print(f"No JPG image find in {IMG_DIR}")
-            exit()
-
-        base = np.array([get_orginal_image(sample_file) for sample_file in data[0:self.batch_size*base_count]])
-        base_normalized = base / 255.0
-
-        base_edge = np.array([get_orginal_image(sample_file, color=False) / 255.0 for sample_file in e_data])
-        base_edge = np.expand_dims(base_edge, 3)
+        base, base_edge, _ = get_batches(data, offset=0, size=self.batch_size*base_count, read_color_hints=False)
 
         base_colors = np.array([self.imageblur(ba) for ba in base]) / 255.0  # (N, 256, 256, 3)
 
         for i in range(base_count):
             ims(os.path.join(RESULT_DIR, f"base{i}.png"),
-                merge_color(base_normalized[i*self.batch_size:(i+1)*self.batch_size], [self.batch_size_sqrt, self.batch_size_sqrt]))
+                merge_color(base[i*self.batch_size:(i+1)*self.batch_size], [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims(os.path.join(RESULT_DIR, f"base_line{i}.jpg"),
                 merge(base_edge[i*self.batch_size:(i+1)*self.batch_size], [self.batch_size_sqrt, self.batch_size_sqrt]))
             ims(os.path.join(RESULT_DIR, f"base_colors{i}.jpg"),
@@ -167,29 +148,24 @@ class Color():
 
         for e in range(20000):
             for i in range(datalen // self.batch_size):
-                batch_files = data[i * self.batch_size:(i + 1) * self.batch_size]
-                e_data = [sample_file.replace(DIR_r, DIR_e) for sample_file in batch_files]
+                start_time = time.time()
 
-                batch = np.array([get_orginal_image(batch_file) for batch_file in batch_files])
-                batch_normalized = batch / 255.0
-
-                batch_edge = np.array([get_orginal_image(sample_file, color=False) / 255.0 for sample_file in e_data])
-                batch_edge = np.expand_dims(batch_edge, 3)
-
+                batch, batch_edge, _ = get_batches(data, offset=i*self.batch_size , size=self.batch_size, read_color_hints=False)
                 batch_colors = np.array([self.imageblur(ba) for ba in batch]) / 255.0
 
                 d_loss, _ = self.sess.run([self.d_loss, self.d_optim],
-                                          feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge,
+                                          feed_dict={self.real_images: batch, self.line_images: batch_edge,
                                                      self.color_images: batch_colors})
                 g_loss, _ = self.sess.run([self.g_loss, self.g_optim],
-                                          feed_dict={self.real_images: batch_normalized, self.line_images: batch_edge,
+                                          feed_dict={self.real_images: batch, self.line_images: batch_edge,
                                                      self.color_images: batch_colors})
 
-                print("%d: [%d / %d] d_loss %f, g_loss %f" % (e, i, (datalen / self.batch_size), d_loss, g_loss))
+                elapsed_time = time.time() - start_time
+                print(f"[{elapsed_time:.2f}s] {e}: [{i}/{datalen // self.batch_size}] d_loss {d_loss:.2f}, g_loss {g_loss:.2f}")
 
                 if i % 500 == 0:
                     for j in range(base_count):
-                        recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: base_normalized[j*self.batch_size:(j+1)*self.batch_size],
+                        recreation = self.sess.run(self.generated_images, feed_dict={self.real_images: base[j*self.batch_size:(j+1)*self.batch_size],
                                                                                      self.line_images: base_edge[j*self.batch_size:(j+1)*self.batch_size],
                                                                                      self.color_images: base_colors[j*self.batch_size:(j+1)*self.batch_size]})
                         ims(os.path.join(RESULT_DIR, str(e * 100000 + i) + f"_{j}.jpg"),
@@ -261,23 +237,10 @@ class Color():
     def bn_g(self, x):
         return bn(x, prefix="g_bn")
 
-def prepare_dir():
-    if not os.path.exists(DATA_ROOT_DIR):
-        print(f"Data directory {DATA_ROOT_DIR} not exist")
-
-    if not os.path.exists(APP_ROOT_DIR):
-        print(f"App directory {APP_ROOT_DIR} not exist")
-
-    if not os.path.exists(RESULT_DIR):
-        os.makedirs(RESULT_DIR)
-    if not os.path.exists(CHECKPOINT_DIR):
-        os.makedirs(CHECKPOINT_DIR)
-
-
 if __name__ == '__main__':
     cmd = "train" if len(sys.argv) == 1 else sys.argv[1]
 
-    print("Starting ...")
+    print(f"Starting ... {cmd}")
     prepare_dir()
     if cmd == "train":
         c = Color()

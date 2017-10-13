@@ -6,7 +6,7 @@ import sys
 import math
 from random import randint
 
-from gan_utils import *
+from gan_layers import *
 
 
 class Palette():

@@ -4,11 +4,8 @@ checkpoint_gan/
 checkpoint_base/
 results_base/
 results_gan/
+results_cgan/
 results/
-main.pyc
-utils.pyc
-server.pyc
-ops.pyc
 cv.py
 cv2.so
 *.pyc

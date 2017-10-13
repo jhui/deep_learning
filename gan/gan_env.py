@@ -42,3 +42,14 @@ SAMPLE_IMG_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_r)
 SAMPLE_EDGE_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_e)
 SAMPLE_META_DIR = os.path.join(DATA_ROOT_DIR, SAMPLE_m)
 
+def prepare_dir():
+    if not os.path.exists(DATA_ROOT_DIR):
+        print(f"Data directory {DATA_ROOT_DIR} not exist")
+
+    if not os.path.exists(APP_ROOT_DIR):
+        print(f"App directory {APP_ROOT_DIR} not exist")
+
+    if not os.path.exists(RESULT_DIR):
+        os.makedirs(RESULT_DIR)
+    if not os.path.exists(CHECKPOINT_DIR):
+        os.makedirs(CHECKPOINT_DIR)

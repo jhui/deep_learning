@@ -2,7 +2,7 @@ from glob import glob
 import os
 import numpy as np
 import cv2
-from gan_utils import *
+from gan_layers import *
 
 ROOT_DIR = os.path.join(os.sep, "Users", "venice", "dataset", "anime")
 

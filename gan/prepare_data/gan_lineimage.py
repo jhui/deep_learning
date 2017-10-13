@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 import cv2
 
-from gan_utils import *
+from gan_layers import *
 from gan_env import *
 
 if __name__ == '__main__':

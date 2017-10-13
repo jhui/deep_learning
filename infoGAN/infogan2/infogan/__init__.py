@@ -292,7 +292,7 @@ def train():
     loss_discriminator = tf.reduce_mean(loss_discriminator_fake_images) + tf.reduce_mean(loss_discriminator_true_images)
 
     # generator should maximize:
-    loss_geneartor = - tf.reduce_mean(tf.log(prob_fake + TINY))
+    loss_generator = - tf.reduce_mean(tf.log(prob_fake + TINY))
 
     discriminator_solver = tf.train.AdamOptimizer(
         learning_rate=discriminator_lr,
@@ -307,9 +307,9 @@ def train():
     generator_variables = scope_variables("generator")
 
     train_discriminator = discriminator_solver.minimize(loss_discriminator, var_list=discriminator_variables)
-    train_generator = generator_solver.minimize(loss_geneartor, var_list=generator_variables)
+    train_generator = generator_solver.minimize(loss_generator, var_list=generator_variables)
     discriminator_loss_summary = tf.summary.scalar("loss_discriminator", loss_discriminator)
-    generator_loss_summary = tf.summary.scalar("loss_geneartor", loss_geneartor)
+    generator_loss_summary = tf.summary.scalar("loss_generator", loss_generator)
 
     c_categorical_vectors = []
     offset = 0
@@ -395,7 +395,7 @@ def train():
                 # Train generator
                 noise = sample_noise(batch_size)
                 _, _, generator_summary, generator_loss, infogan_loss = sess.run(
-                    [train_generator, train_mutual_info, generator_loss_summary, loss_geneartor, loss_mutual_info],
+                    [train_generator, train_mutual_info, generator_loss_summary, loss_generator, loss_mutual_info],
                     feed_dict={
                         zc_vectors:noise,
                         is_training_discriminator:True,
