@@ -9,10 +9,9 @@ from glob import glob
 import tensorflow as tf
 import numpy as np
 
-from gan_layers import *
 from gan_env import *
+from gan_layers import *
 from gan_data import *
-
 
 class Color():
     def __init__(self, imgsize=256, batchsize=4):
@@ -238,7 +237,7 @@ class Color():
 
 if __name__ == '__main__':
     cmd = "train" if len(sys.argv) == 1 else sys.argv[1]
-    cmd = "sample"
+
     print(f"Starting ... {cmd}")
     prepare_dir()
     if cmd == "train":
