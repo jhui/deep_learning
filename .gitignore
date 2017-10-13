@@ -84,3 +84,5 @@ neural-style/data
 
 gan/checkpoint_base
 gan/results_base
+
+gan/results_cgan2

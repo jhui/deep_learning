@@ -6,6 +6,7 @@ results_base/
 results_gan/
 results_cgan/
 results/
+results_cgan2/
 cv.py
 cv2.so
 *.pyc
