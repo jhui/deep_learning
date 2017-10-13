@@ -202,7 +202,6 @@ class Color():
         img_in = tf.concat([img_in, colors], axis=3)
         return img_in
 
-
     def loadmodel(self, load_discrim=True):
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
