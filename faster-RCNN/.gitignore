@@ -1,0 +1,5 @@
+*.pyc
+*.so
+*.o
+*.ckpt
+faster_rcnn_models
