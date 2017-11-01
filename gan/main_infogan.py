@@ -58,10 +58,10 @@ class Color():
         self.real_AB = tf.concat([combined_preimage, self.real_images], 3)  # (4, 256, 256, 4)
         self.fake_AB = tf.concat([combined_preimage, self.generated_images], 3)  # (4, 256, 256, 4)
 
-        self.disc_fake, disc_fake_logits, q_category, q_uniform, q_gaussian = self.discriminator(self.fake_AB, generate_q=True)
+        self.disc_fake, disc_fake_logits, q_category, q_uniform = self.discriminator(self.fake_AB, generate_q=True)
         tf.get_variable_scope().reuse_variables()
 
-        self.disc_true, disc_true_logits, _ , _ , _ = self.discriminator(self.real_AB)  # (4, 1), (4, 1)
+        self.disc_true, disc_true_logits, _ , _  = self.discriminator(self.real_AB)  # (4, 1), (4, 1)
         tf.get_variable_scope()._reuse = False
 
         cond_ent = tf.reduce_mean(-tf.reduce_sum(tf.log(q_category + TINY) * self.c_category, reduction_indices=1))
@@ -75,14 +75,7 @@ class Color():
             reduction_indices=1,
         ))
 
-        sd = tf.ones_like(q_gaussian)   # (N, 200)
-        epsilon = (self.c_gaussian - q_gaussian) / (sd + TINY)  # (N, 200)
-        self.q_loss_gaussian = tf.reduce_mean(tf.reduce_sum(
-            0.5 * np.log(2 * np.pi) + tf.log(sd + TINY) + 0.5 * tf.square(epsilon),
-            reduction_indices=1,
-        ))
-
-        self.q_loss = self.q_loss_category + self.q_loss_uniform + self.q_loss_gaussian
+        self.q_loss = self.q_loss_category + self.q_loss_uniform
 
         self.d_loss_real = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(logits=disc_true_logits, labels=tf.ones_like(disc_true_logits)))
@@ -104,7 +97,6 @@ class Color():
         self.q_optim = tf.train.AdamOptimizer(0.0002, beta1=0.5).minimize(self.q_loss, var_list=self.d_vars + self.g_vars)
 
     def discriminator(self, image, generate_q = False):
-        # image: (N, 256, 256, 7)
         # image: (N, 256, 256, 4)
 
         h0 = lrelu(conv2d(image, 64, name='d_h0_conv'))  # (N, 128, 128, 64)
@@ -113,7 +105,7 @@ class Color():
         h3 = lrelu(self.d_bn3(conv2d(h2, 512, stride_h=1, stride_w=1, name='d_h3_conv')))  # (N, 32, 32, 512)
         h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')  # (N, 1)
 
-        c_category = c_uniform = c_gaussian = None
+        c_category = c_uniform = None
         if generate_q:
             q_h0 = lrelu(self.d_bn4(conv2d(h3, 512, name='d_c1_conv')))  # (N, 16, 16, 512)
             q_h1 = lrelu(self.d_bn5(conv2d(q_h0, 1024, name='d_c2_conv')))  # (N, 8, 8, 1024)
@@ -124,9 +116,8 @@ class Color():
             logits_category = linear(q, self.c_category_dim, 'd_q2_lin')
             c_category = tf.nn.softmax(logits_category)
             c_uniform  = linear(q, self.c_uniform_dim, 'd_q3_lin')
-            c_gaussian = linear(q, self.c_gaussian_dim, 'd_q4_lin')
 
-        return tf.nn.sigmoid(h4), h4, c_category, c_uniform, c_gaussian
+        return tf.nn.sigmoid(h4), h4, c_category, c_uniform
 
     def generator(self, img_in, c_category, c_uniform, c_gaussian):
         # img_in: (N, 256, 256, 4)
@@ -185,7 +176,8 @@ class Color():
         self.d8, self.d8_w, self.d8_b = deconv2d(tf.nn.relu(d7), [self.batch_size, s, s, 3],
                                                  name='g_d8', with_w=True)  # (N, 256, 256, 3)
 
-        return tf.nn.tanh(self.d8)
+        return tf.nn.sigmoid(self.d8)
+
 
     def train(self):
         self.loadmodel()
@@ -194,8 +186,7 @@ class Color():
         data = glob(os.path.join(IMG_DIR, "*.jpg"))
         data = override_demo_image(data, self.batch_size)
 
-
-        base, base_edge, _ = get_batches(data, offset=0, size=self.batch_size*base_count, read_color_hints=False)
+        base, base_edge, base_colors = get_batches(data, offset=0, size=self.batch_size*base_count)
 
         base_c_category = sample_category(self.batch_size * base_count, self.c_category_dim)
         base_c_uniform  = sample_uniform(self.batch_size * base_count, self.c_uniform_dim)
@@ -255,7 +246,7 @@ class Color():
 
         datalen = len(data)
 
-        for i in range(min(100, datalen // self.batch_size)):
+        for i in range(min(1000, datalen // self.batch_size)):
 
             batch, batch_edge, batch_colors = get_batches(data, offset=i * self.batch_size, size=self.batch_size, read_color_hints=False)
 
@@ -265,7 +256,6 @@ class Color():
 
             recreation = self.sess.run(self.generated_images,
                                        feed_dict={self.real_images: batch, self.line_images: batch_edge,
-                                                  # self.color_images: batch_colors,
                                                   self.c_category: c_category,
                                                   self.c_gaussian: c_gaussian,
                                                   self.c_uniform: c_uniform})

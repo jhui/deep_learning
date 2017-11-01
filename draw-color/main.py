@@ -40,8 +40,8 @@ class Draw():
 
         # Initial state (zero-state) for LSTM.
         h_dec_prev = tf.zeros((self.N, self.n_hidden))  # Prev decoder hidden state (N, 256)
-        enc_state = self.lstm_enc.zero_state(self.N, tf.float32) # (64, 256)
-        dec_state = self.lstm_dec.zero_state(self.N, tf.float32)
+        enc_state = self.lstm_enc.zero_state(self.N, tf.float32) # (N, 256)
+        dec_state = self.lstm_dec.zero_state(self.N, tf.float32) # (N, 256)
 
         x = self.images
         for t in range(self.T):
@@ -53,17 +53,17 @@ class Draw():
             #    the hidden decoder state for the last time step.
             c_prev = tf.zeros((self.N, 784)) if t == 0 else self.ct[t - 1]  # (N, 784)
             x_hat = x - tf.sigmoid(c_prev)  # residual: (N, 784)
-            r = self.read_attention(x, x_hat, h_dec_prev)        # (N, 50)
+            r = self.read_attention(x, x_hat, h_dec_prev)        # (N, 50): (N, 25) for x and (N, 25) for x_hat
 
             # Using LSTM cell to encode the input with the encoder state
             # We use the attention input r and the previous decoder state as the input to the LSTM cell.
-            self.mu[t], self.logsigma[t], self.sigma[t], enc_state = self.encode(enc_state, tf.concat([r, h_dec_prev], 1))
+            self.mu[t], self.logsigma[t], self.sigma[t], enc_state = self.encode(enc_state, tf.concat([r, h_dec_prev], 1)) # (N, 10)
 
             # Sample from the distribution returned from the encoder to get z.
-            z = self.sample(self.mu[t], self.sigma[t], self.distrib)
+            z = self.sample(self.mu[t], self.sigma[t], self.distrib) # (N, 10)
 
             # Get the hidden decoder state and the cell state using the a LSTM decoder.
-            h_dec, dec_state = self.decode_layer(dec_state, z)
+            h_dec, dec_state = self.decode_layer(dec_state, z) # (N, 256), (N, 256)
 
             # Calculate the output image at step t using attention with the decoder state as input.
             self.ct[t] = c_prev + self.write_attention(h_dec)
