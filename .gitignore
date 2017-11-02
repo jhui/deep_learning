@@ -86,3 +86,5 @@ gan/checkpoint_base
 gan/results_base
 
 gan/results_cgan2
+faster-RCNN/data/
+
