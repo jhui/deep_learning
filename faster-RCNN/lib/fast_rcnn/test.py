@@ -157,7 +157,7 @@ def im_detect(sess, net, im, boxes=None):
         boxes = boxes[index, :]
 
     if cfg.TEST.HAS_RPN:
-        im_blob = blobs['data']
+        im_blob = blobs['data']   # (1, 600, 800, 3)
         blobs['im_info'] = np.array(
             [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
             dtype=np.float32)
@@ -180,7 +180,7 @@ def im_detect(sess, net, im, boxes=None):
 
     if cfg.TEST.HAS_RPN:
         assert len(im_scales) == 1, "Only single-image batch implemented"
-        boxes = rois[:, 1:5] / im_scales[0]
+        boxes = rois[:, 1:5] / im_scales[0]         # (300, 4)
 
 
     if cfg.TEST.SVM:
@@ -189,13 +189,13 @@ def im_detect(sess, net, im, boxes=None):
         scores = cls_score
     else:
         # use softmax estimated probabilities
-        scores = cls_prob
+        scores = cls_prob                           # (300, 21)
 
     if cfg.TEST.BBOX_REG:
         # Apply bounding-box regression deltas
         box_deltas = bbox_pred
         pred_boxes = bbox_transform_inv(boxes, box_deltas)
-        pred_boxes = _clip_boxes(pred_boxes, im.shape)
+        pred_boxes = _clip_boxes(pred_boxes, im.shape)   # (300, 84)
     else:
         # Simply repeat the boxes, once for each class
         pred_boxes = np.tile(boxes, (1, scores.shape[1]))
@@ -211,7 +211,7 @@ def im_detect(sess, net, im, boxes=None):
         trace_file.write(trace.generate_chrome_trace_format(show_memory=False))
         trace_file.close()
 
-    return scores, pred_boxes
+    return scores, pred_boxes  # (300, 21), (300, 84)
 
 
 def vis_detections(im, class_name, dets, thresh=0.8):

@@ -56,7 +56,6 @@ def demo(sess, net, image_name):
 
     # Load the demo image
     im_file = os.path.join(cfg.DATA_DIR, 'demo', image_name)
-    #im_file = os.path.join('/home/corgi/Lab/label/pos_frame/ACCV/training/000001/',image_name)
     im = cv2.imread(im_file)
 
     # Detect all object classes and regress object bounds
@@ -95,7 +94,7 @@ def parse_args():
     parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16]',
                         default='VGGnet_test')
     parser.add_argument('--model', dest='model', help='Model path',
-                        default=' ')
+                        default='checkpoint/VGGnet_fast_rcnn_iter_70000.ckpt')
 
     args = parser.parse_args()
 
