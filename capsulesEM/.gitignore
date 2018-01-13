@@ -1,0 +1,13 @@
+*.akv
+
+*.pyc
+
+/doc/node_modules
+
+/src/.ipynb_checkpoints
+
+/src/checkpoint
+
+/src/data
+
+/src/log

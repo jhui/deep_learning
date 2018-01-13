@@ -139,6 +139,7 @@ class CapsuleLayer(layers.Layer):
         """
         # Routing algorithm V2. Use iteration. V2 and V1 both work without much difference on performance
         assert self.num_routing > 0, 'The num_routing should be > 0.'
+
         for i in range(self.num_routing):
             c = tf.nn.softmax(self.bias, dim=2)  # dim=2 is the num_capsule dimension
             # outputs.shape=[None, 1, num_capsule, 1, dim_vector]
