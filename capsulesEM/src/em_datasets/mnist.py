@@ -170,5 +170,6 @@ def inputs(data_directory, is_training, batch_size):
     allow_smaller_final_batch=False
   )
 
+  # images: Tensor (24, 28, 28, 1), labels: Tensor (24, 10)
   return (images, labels)
 

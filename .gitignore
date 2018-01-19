@@ -88,3 +88,6 @@ gan/results_base
 gan/results_cgan2
 faster-RCNN/data/
 
+*.lan
+
+basic/mnist/log/

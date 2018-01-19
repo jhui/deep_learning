@@ -48,7 +48,7 @@ def capsules_net(inputs, num_classes, iterations, name='CapsuleEM-V0'):
 # ------------------------------------ loss ------------------------------------#
 # ------------------------------------------------------------------------------#
 
-def spread_loss(labels, activations, margin, name):
+def spread_loss(labels, activations, iterations_per_epoch, global_step, name):
   """This adds spread loss to total loss.
 
   :param labels: [N, O], where O is number of output classes, one hot vector, tf.uint8.
@@ -57,6 +57,18 @@ def spread_loss(labels, activations, margin, name):
 
   :return: spread loss
   """
+
+  # margin schedule
+  # margin increase from 0.2 to 0.9
+  margin = tf.train.piecewise_constant(
+    tf.cast(global_step, dtype=tf.int32),
+    boundaries=[
+      (iterations_per_epoch * x) for x in range(1, 8)
+    ],
+    values=[
+      x / 10.0 for x in range(2, 10)
+    ]
+  )
 
   activations_shape = activations.get_shape().as_list()
 

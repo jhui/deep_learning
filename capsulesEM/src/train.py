@@ -15,7 +15,7 @@ def main(_):
         with tf.device('/cpu:0'):
             global_step = tf.train.get_or_create_global_step()
 
-        # images shape (24, 28, 28, 1), labels shape (24, 10)
+        # images Tensor (24, 28, 28, 1), labels Tensor (24, 10)
         images, labels = mnist.inputs(data_directory=FLAGS.data_dir, is_training=True, batch_size=FLAGS.batch_size)
 
         poses, activations = capsules.nets.capsules_net(images, num_classes=10, iterations=3, name='capsulesEM-V0')
