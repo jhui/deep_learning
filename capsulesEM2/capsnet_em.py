@@ -86,28 +86,37 @@ def spread_loss(output, pose_out, x, y, m):
 
     return loss_all, loss, reconstruction_loss, pose_out
 
-# input should be a tensor with size as [batch_size, height, width, channels]
 def kernel_tile(input, kernel, stride):
-    # output = tf.extract_image_patches(input, ksizes=[1, kernel, kernel, 1], strides=[1, stride, stride, 1], rates=[1, 1, 1, 1], padding='VALID')
+    """This constructs a primary capsule layer using regular convolution layer.
+
+    :param inputs: shape (50, 12, 12, 8x(16+1)=136)
+    :param kernel: 3
+    :param stride: 2
+
+    :return output: (50, 5, 5, 3x3=9, 136)
+    """
 
     input_shape = input.get_shape()
     tile_filter = np.zeros(shape=[kernel, kernel, input_shape[3],
                                   kernel * kernel], dtype=np.float32)
     for i in range(kernel):
         for j in range(kernel):
-            tile_filter[i, j, :, i * kernel + j] = 1.0
+            tile_filter[i, j, :, i * kernel + j] = 1.0 # (3, 3, 136, 9)
 
+    # (3, 3, 136, 9)
     tile_filter_op = tf.constant(tile_filter, dtype=tf.float32)
+
+    # (50, 5, 5, 1224)
     output = tf.nn.depthwise_conv2d(input, tile_filter_op, strides=[
                                     1, stride, stride, 1], padding='VALID')
+
     output_shape = output.get_shape()
     output = tf.reshape(output, shape=[int(output_shape[0]), int(
         output_shape[1]), int(output_shape[2]), int(input_shape[3]), kernel * kernel])
     output = tf.transpose(output, perm=[0, 1, 2, 4, 3])
 
+    # (50, 5, 5, 9, 136)
     return output
-
-# input should be a tensor with size as [batch_size, caps_num_i, 16]
 
 
 def mat_transform(input, caps_num_c, regularizer, tag=False):
@@ -196,10 +205,10 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
             tf.logging.info('primary capsule output shape: {}'.format(output.get_shape()))
 
         with tf.variable_scope('conv_caps1') as scope:
-            output = kernel_tile(output, 3, 2)                # (50, 5, 5, 9, 136)
+            output = kernel_tile(output, 3, 2)                # (50, 12, 12, 8x(16+1)=136) -> (50, 5, 5, 3x3, 136)
             data_size = int(np.floor((data_size - 2) / 2))    # 5
             output = tf.reshape(output, shape=[cfg.batch_size *
-                                               data_size * data_size, 3 * 3 * cfg.B, 17])  # (1250, 72, 17)
+                                               data_size * data_size, 3 * 3 * cfg.B, 17])  # (1250, 9x8=72, 17)
             activation = tf.reshape(output[:, :, 16], shape=[
                                     cfg.batch_size * data_size * data_size, 3 * 3 * cfg.B, 1]) # (1250, 72, 1)
 
@@ -208,6 +217,8 @@ def build_arch(input, coord_add, is_train: bool, num_classes: int):
                 tf.logging.info('conv cap 1 votes shape: {}'.format(votes.get_shape()))
 
             with tf.variable_scope('routing') as scope:
+                # Votes: (1250, 3x3x8=72, 16, 4x4), activation (1250, 72, 1), 16
+                # miu: (1250, 1, 16, 16) activation: (1250, 16)
                 miu, activation, _ = em_routing(votes, activation, cfg.C, weights_regularizer) # (1250, 1, 16, 16), (1250, 16)
                 tf.logging.info('conv cap 1 miu shape: {}'.format(miu.get_shape()))
                 tf.logging.info('conv cap 1 activation before reshape: {}'.format(

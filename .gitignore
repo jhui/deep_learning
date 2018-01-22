@@ -91,3 +91,5 @@ faster-RCNN/data/
 *.lan
 
 basic/mnist/log/
+
+capsule_em/log

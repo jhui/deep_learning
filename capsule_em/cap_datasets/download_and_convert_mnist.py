@@ -35,7 +35,7 @@ from six.moves import urllib
 import tensorflow as tf
 
 import dataset_utils
-from config import settings
+from mnist_config import settings
 
 FLAGS = None
 

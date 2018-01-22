@@ -389,12 +389,11 @@ def capsules_conv(inputs, shape, strides, iterations, name):
 
 
 def capsules_fc(inputs, num_classes, iterations, name):
-  """This constructs an output layer from a primary or convolution capsule layer via
-    a full-connected operation with one view transformation kernel matrix shared across each channel.
+  """This constructs an output layer from a convolution capsule layer via
+    a full-connected operation with one view transformation kernel matrix shared across spatially.
 
-  :param inputs: a primary or convolution capsule layer with poses and activations,
-    poses shape [N, H, W, C, PH, PW], activations shape [N, H, W, C]
-  :param num_classes: number of classes.
+  :param inputs: ((24, 4, 4, 32, 4, 4), (24, 4, 4, 32))
+  :param num_classes: number of classes. 10
   :param iterations: number of iterations in EM routing, often 3.
   :param name: name.
 
@@ -416,16 +415,14 @@ def capsules_fc(inputs, num_classes, iterations, name):
         in the KH, KW, but shared across different (height, width) locations.
   """
 
+  # inputs_poses: (24, 4, 4, 32, 4, 4), inputs_activations: (24, 4, 4, 32)
   inputs_poses, inputs_activations = inputs
 
   inputs_poses_shape = inputs_poses.get_shape().as_list()
-
   inputs_activations_shape = inputs_activations.get_shape().as_list()
 
   with tf.variable_scope(name) as scope:
-
-    # kernel: [I, O, PW, PW]
-    # yg note: if pose is irregular such as 5x3, then kernel for pose view transformation should be 3x3.
+    # (32, 10, 4, 4)
     kernel = _get_weights_wrapper(
       name='pose_view_transform_weights',
       shape=[
@@ -433,34 +430,26 @@ def capsules_fc(inputs, num_classes, iterations, name):
       ],
     )
 
-    # inputs_pose_expansion: [N, H, W, I, 1, PH, PW]
-    # inputs_pose_expansion: expand inputs_pose dimension to match with kernel for broadcasting,
-    # share the transformation matrices between different positions of the same capsule type,
-    # share the transformation matrices as kernel (1, 1) broadcasting to inputs pose expansion (H, W)
+    # (24, 4, 4, 32, 1, 4, 4)
     inputs_poses_expansion = inputs_poses[..., tf.newaxis, :, :]
-
-    # TODO: update when issue fixed for broadcasting: https://github.com/tensorflow/tensorflow/issues/14924
-    # temporary workaround with tf.tile.
+    # (24, 4, 4, 32, 10, 4, 4)
     inputs_poses_expansion = tf.tile(
       inputs_poses_expansion, [1, 1, 1, 1, num_classes, 1, 1], name='workaround_broadcasting_issue'
     )
 
-    # votes: [N, H, W, I, O, PH, PW]
+    # (24, 4, 4, 32, 10, 4, 4)
     votes = _matmul_broadcast(
       inputs_poses_expansion, kernel, name='votes'
     )
     votes_shape = votes.get_shape().as_list()
-    # votes: reshape into [N, H, W, I, O, PH x PW]
+
+    # (24, 4, 4, 32, 10, 16)
     votes = tf.reshape(
       votes, [-1] + votes_shape[1:-2] + [votes_shape[-2] * votes_shape[-1]]
     )
-    # stop gradient on votes
-    # votes = tf.stop_gradient(votes, name='votes_stop_gradient')
 
-    # add scaled coordinate (row, column) of the center of the receptive field of each capsule
-    # to the first two elements of its vote
-    H = inputs_poses_shape[1]
-    W = inputs_poses_shape[2]
+    H = inputs_poses_shape[1]  # 4
+    W = inputs_poses_shape[2]  # 4
 
     coordinate_offset_hh = tf.reshape(
       (tf.range(H, dtype=tf.float32) + 0.50) / H, [1, H, 1, 1, 1]
@@ -470,7 +459,7 @@ def capsules_fc(inputs, num_classes, iterations, name):
     )
     coordinate_offset_h = tf.stack(
       [coordinate_offset_hh, coordinate_offset_h0] + [coordinate_offset_h0 for _ in range(14)], axis=-1
-    )
+    )  # (1, 4, 1, 1, 1, 16)
 
     coordinate_offset_ww = tf.reshape(
       (tf.range(W, dtype=tf.float32) + 0.50) / W, [1, 1, W, 1, 1]
@@ -480,18 +469,12 @@ def capsules_fc(inputs, num_classes, iterations, name):
     )
     coordinate_offset_w = tf.stack(
       [coordinate_offset_w0, coordinate_offset_ww] + [coordinate_offset_w0 for _ in range(14)], axis=-1
-    )
+    ) # (1, 1, 4, 1, 1, 16)
 
+    # (24, 4, 4, 32, 10, 16)
     votes = votes + coordinate_offset_h + coordinate_offset_w
 
-    # votes: reshape into [N, H x W x I, O, PH x PW]
-    # votes = tf.reshape(
-    #   votes, [
-    #     votes_shape[0],
-    #     votes_shape[1] * votes_shape[2] * votes_shape[3],
-    #     votes_shape[4],  votes_shape[5] * votes_shape[6]
-    #   ]
-    # )
+    # (24, 512, 10, 16)
     votes = tf.reshape(
       votes, [
         -1,
@@ -500,14 +483,7 @@ def capsules_fc(inputs, num_classes, iterations, name):
       ]
     )
 
-    # inputs_activations: [N, H, W, I]
-    # inputs_activations: reshape into [N, H x W x I]
-    # i_activations = tf.reshape(
-    #   inputs_activations, [
-    #     inputs_activations_shape[0],
-    #     inputs_activations_shape[1] * inputs_activations_shape[2] * inputs_activations_shape[3]
-    #   ]
-    # )
+    # (24, 512)
     i_activations = tf.reshape(
       inputs_activations, [
         -1,
@@ -516,6 +492,7 @@ def capsules_fc(inputs, num_classes, iterations, name):
     )
 
     # beta_v and beta_a one for each output capsule: [1, O]
+    # beta_v (1, 10), beta_a (1, 10)
     beta_v = _get_weights_wrapper(
       name='beta_v', shape=[1, num_classes]
     )
@@ -523,18 +500,13 @@ def capsules_fc(inputs, num_classes, iterations, name):
       name='beta_a', shape=[1, num_classes]
     )
 
-    # output poses and activations via matrix capsules_em_routing algorithm
-    # poses: [N, O, PH x PW], activations: [N, O]
+    # votes: (24, 512, 10, 16), i_activations (24, 512)
+    # -> poses (24, 10, 16), activations (24, 10)
     poses, activations = matrix_capsules_em_routing(
       votes, i_activations, beta_v, beta_a, iterations, name='em_routing'
     )
 
-    # pose: [N, O, PH, PW]
-    # poses = tf.reshape(
-    #   poses, [
-    #     votes_shape[0], votes_shape[4], votes_shape[5], votes_shape[6]
-    #   ]
-    # )
+    # (24, 10, 4, 4)
     poses = tf.reshape(
       poses, [
         -1, votes_shape[4], votes_shape[5], votes_shape[6]
@@ -546,6 +518,7 @@ def capsules_fc(inputs, num_classes, iterations, name):
       'activations', activations
     )
 
+  # poses (24, 10, 4, 4) activations # (24, 10)
   return poses, activations
 
 
