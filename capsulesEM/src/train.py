@@ -1,7 +1,7 @@
 """A train script for matrix capsule with EM routing."""
 
 from em_datasets import mnist
-import capsules
+import capsules_sarasra
 
 from settings import *
 
@@ -18,7 +18,7 @@ def main(_):
         # images Tensor (24, 28, 28, 1), labels Tensor (24, 10)
         images, labels = mnist.inputs(data_directory=FLAGS.data_dir, is_training=True, batch_size=FLAGS.batch_size)
 
-        poses, activations = capsules.nets.capsules_net(images, num_classes=10, iterations=3, name='capsulesEM-V0')
+        poses, activations = capsules_sarasra.nets.capsules_net(images, num_classes=10, iterations=3, name='capsulesEM-V0')
 
 
         # activations = tf.Print(activations, [activations.shape, activations[0, ...]], 'activations', summarize=20)
@@ -36,7 +36,7 @@ def main(_):
             ]
         )
 
-        loss = capsules.nets.spread_loss(
+        loss = capsules_sarasra.nets.spread_loss(
             labels, activations, margin=margin, name='spread_loss'
         )
 

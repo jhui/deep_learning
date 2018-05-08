@@ -3,7 +3,7 @@
 
 import tensorflow as tf
 
-from capsules.core import _conv2d_wrapper, capsules_init, capsules_conv, capsules_fc
+from capsules_sarasra.core import _conv2d_wrapper, capsules_init, capsules_conv, capsules_fc
 
 slim = tf.contrib.slim
 
