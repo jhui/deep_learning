@@ -1,5 +1,5 @@
 # Code is modified from https://github.com/wiseodd/generative-models/blob/master/GAN/conditional_gan/cgan_tensorflow.py
-
+ 
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import numpy as np
